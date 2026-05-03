@@ -1,7 +1,9 @@
 # v0.7.2 2026-05-02
 
+- Use rose quartz color for accent in landing page
 - Use database for all streams/subtitles if found
 - Log less error, mainly for unknown error
+- Fix stuck when fail to probe stream info
 
 # v0.7.1 2026-04-26
 

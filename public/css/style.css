@@ -18,6 +18,7 @@
   --lg: 1.5rem;
   --xl: 3rem;
   --font-md: 0.9rem;
+  --accent: #E67C99;
 
   --toggle-width: 44px;
   --toggle-height: 24px;
@@ -191,15 +192,16 @@ input[type="checkbox"].switch::after {
 }
 /* Checked States */
 input[type="checkbox"].switch:checked {
-  background: var(--accent-color);
+  background: color-mix(in srgb, var(--accent), transparent 20%);
 }
 input[type="checkbox"].switch:checked::after {
   transform: translateX(20px);
+  background: var(--foreground);
 }
 /* Accessibility: Keyboard Focus */
 input[type="checkbox"].switch:focus-visible {
-  border: 2px solid #fff;
-  outline: 2px solid #fff;
+  border: 2px solid var(--foreground);
+  outline: 2px solid var(--foreground);
   outline-offset: 2px;
 }
 
@@ -305,9 +307,9 @@ input[type="checkbox"].switch:focus-visible {
 
 /* The Selected State */
 .radio-card input:checked + .card-content {
-  border-color: var(--accent-color);
-  background: rgba(0, 122, 255, 0.1);
-  color: var(--accent-color);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 90%);
+  color: var(--foreground);
 }
 /* Hover Effect */
 .radio-card:hover .card-content {
@@ -345,8 +347,8 @@ input[type="checkbox"].switch:focus-visible {
   scrollbar-width: none; /* Firefox */
 }
 .copy-btn {
-  background: #28a745;
-  border: none;
+  background: color-mix(in srgb, var(--accent), transparent 60%);
+  border: 2px solid var(--accent);
   border-radius: var(--rounded-md);
   padding: 0.5rem 15px;
   margin: 0.2rem;
@@ -356,7 +358,7 @@ input[type="checkbox"].switch:focus-visible {
   white-space: nowrap;
 }
 .copy-btn:hover {
-  background: #218838;
+  background: color-mix(in srgb, var(--accent), transparent 40%);
 }
 
 /* Changelog */

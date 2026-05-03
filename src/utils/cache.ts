@@ -1,6 +1,7 @@
 import { deleteKv, getKv, setKvs } from "../db/queries.js";
 import { EKVInsert } from "../db/schema/kv.js";
 import { ENV } from "./env.js";
+import { handleError } from "./error.js";
 import { Logger } from "./logger.js";
 
 type CacheValue = {
@@ -110,7 +111,7 @@ class GlobalCache {
         .toArray();
       setKvs(kvCache);
     } catch (e) {
-      logger.error(`Failed to persist cache to DB | ${e}`);
+      handleError(e, logger, `Failed to persist cache to DB`);
     }
   }
 }
