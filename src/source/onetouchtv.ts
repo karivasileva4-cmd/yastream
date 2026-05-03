@@ -41,6 +41,7 @@ import { ContentDetail } from "./meta.js";
 import { getPosterUrl, PosterParam } from "./poster/poster.js";
 import { BaseProvider } from "./provider.js";
 import { tmdb } from "./tmdb.js";
+import { ONETOUCHTV_HOST } from "../utils/constant.js";
 
 interface OnetouchtvTop {
   result: {
@@ -531,7 +532,7 @@ export class OnetouchtvScrapper extends BaseProvider {
               this.logger.log(`GET playlist | ${playlistUrl}`);
               playlist = await axiosGet<string>(playlistUrl);
               if (!playlist) break;
-              if (!playlist.includes("aapanel.devcorp.me")) {
+              if (!playlist.includes(ONETOUCHTV_HOST)) {
                 break;
               }
               // Parse last EXT-X-STREAM-INF URL

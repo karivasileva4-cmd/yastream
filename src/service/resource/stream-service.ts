@@ -5,7 +5,7 @@ import {
   getStreamsJoinProvider,
 } from "../../db/queries.js";
 import { UserConfig } from "../../lib/manifest.js";
-import { API, STREAMS } from "../../utils/constant.js";
+import { API, ONETOUCHTV_HOST, STREAMS } from "../../utils/constant.js";
 import { getOrigin } from "../../utils/domain.js";
 import { formatStreamTitle } from "../../utils/format.js";
 import { parseInfo, probeStreamInfo, StreamInfo } from "../../utils/info.js";
@@ -32,7 +32,14 @@ class StreamService {
         streamsAndProvider.map(async (stream, index) => {
           let url = stream.streams.url;
           if (stream.streams.playlist) {
-            url = StreamService.getStreamUrl(stream.streams.id);
+            // Violate Cloudflare's ToS if serve m3u8 stream
+            // url = StreamService.getStreamUrl(stream.streams.id);
+            url = stream.streams.url;
+            const isExpired =
+              stream.streams.createdAt + (stream.streams.ttl ?? 0) < Date.now();
+            if (url.includes(ONETOUCHTV_HOST) && isExpired) {
+              return;
+            }
           }
           let info: StreamInfo = parseInfo(stream.streams);
           if (config.info) {
@@ -59,7 +66,7 @@ class StreamService {
           };
         }),
       );
-      return streams;
+      return streams.filter((stream) => stream !== undefined);
     }
     return [];
   }
