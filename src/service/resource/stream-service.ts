@@ -5,7 +5,8 @@ import {
   getStreamsJoinProvider,
 } from "../../db/queries.js";
 import { UserConfig } from "../../lib/manifest.js";
-import { API, ONETOUCHTV_HOST, STREAMS } from "../../utils/constant.js";
+import { ONETOUCHTV_HOST } from "../../source/onetouchtv.js";
+import { API, STREAMS } from "../../utils/constant.js";
 import { getOrigin } from "../../utils/domain.js";
 import { formatStreamTitle } from "../../utils/format.js";
 import { parseInfo, probeStreamInfo, StreamInfo } from "../../utils/info.js";

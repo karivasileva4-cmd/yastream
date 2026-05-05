@@ -6,12 +6,6 @@ import { Logger } from "../utils/logger.js";
 
 const logger = new Logger("DB");
 
-export const COMMON_TTL = {
-  content: 24 * 60 * 60 * 1000,
-  provider: 4 * 60 * 60 * 1000,
-  stream: 1 * 60 * 60 * 1000,
-};
-
 class DatabaseManager {
   private db: Database.Database;
 

@@ -1,9 +1,5 @@
 export const API = "api";
 export const STREAMS = `streams-resource`;
 export const SUBTITLES = `subtitles-resource`;
-export const RATE_LIMIT_NAME = `RATE LIMIT 429`;
+export const RATE_LIMIT_DESCRIPTION = `Rate limit\nRetry after a few seconds`;
 export const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-
-export const ONETOUCHTV_HOST = Buffer.from("YWFwYW5lbC5kZXZjb3JwLm1l", "base64").toString(
-  "utf-8",
-);

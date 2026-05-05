@@ -16,7 +16,6 @@ import {
   upsertProviderContent,
 } from "../db/queries.js";
 import { EProviderContent } from "../db/schema/provider_content.js";
-import { COMMON_TTL } from "../db/sqlite.js";
 import { IDramaScraper } from "../source/idrama.js";
 import KissKHScraper from "../source/kisskh.js";
 import { KkphimScraper } from "../source/kkphim.js";
@@ -26,12 +25,13 @@ import { OphimScraper } from "../source/ophim.js";
 import { BaseProvider, Provider } from "../source/provider.js";
 import { tmdb } from "../source/tmdb.js";
 import { tvdb } from "../source/tvdb.js";
-import { cache } from "../utils/cache.js";
-import { RATE_LIMIT_NAME } from "../utils/constant.js";
+import { cache, TTL_MS } from "../utils/cache.js";
+import { RATE_LIMIT_DESCRIPTION } from "../utils/constant.js";
 import { extractTitle } from "../utils/format.js";
 import { Logger } from "../utils/logger.js";
 import { defaultConfig, Prefix, UserConfig } from "./manifest.js";
 import ProviderService from "../service/provider/provider-service.js";
+import { getOrigin } from "../utils/domain.js";
 
 const kisskh = new KissKHScraper(Provider.KISSKH);
 const idrama = new IDramaScraper(Provider.IDRAMA);
@@ -74,7 +74,7 @@ async function getContent(
         // Get from tmdb
         content = await tmdb.findDetailImdb(imdbId, contentType);
         if (content) {
-          cache.set(contentKey, content, COMMON_TTL.content);
+          cache.set(contentKey, content, TTL_MS.content);
         }
       }
       if (!content) {
@@ -104,7 +104,7 @@ async function getContent(
       }
       if (!content) {
         content = await tmdb.getDetailTmdb(tmdbId, contentType);
-        if (content) cache.set(contentKey, content, COMMON_TTL.content);
+        if (content) cache.set(contentKey, content, TTL_MS.content);
       }
       if (!content) {
         // TMDB get from TMDB must return
@@ -134,7 +134,7 @@ async function getContent(
       }
       if (!content) {
         content = await tvdb.getDetailTvdb(tvdbId, contentType);
-        if (content) cache.set(contentKey, content, COMMON_TTL.content);
+        if (content) cache.set(contentKey, content, TTL_MS.content);
       }
       if (!content) {
         logger.error(`Not found TVDB ${tvdbId}`);
@@ -164,7 +164,7 @@ async function getContent(
           season: season ? parseInt(season) : 1,
           episode: episode ? parseInt(episode) : 1,
         };
-        if (content) cache.set(contentKey, content, COMMON_TTL.content);
+        if (content) cache.set(contentKey, content, TTL_MS.content);
       }
       if (!content) {
         logger.error(`Not found IDrama ${idramaId}`);
@@ -230,11 +230,11 @@ async function getContent(
             provider: Provider.KISSKH,
             externalId: kisskhId,
             image: thumbnail,
-            ttl: COMMON_TTL.content,
+            ttl: TTL_MS.content,
           };
           upsertProviderContent(newProviderContent);
         }
-        cache.set(contentKey, content, COMMON_TTL.content);
+        cache.set(contentKey, content, TTL_MS.content);
       }
       if (!content) {
         logger.error(`Not found kisskh ${kisskhId}`);
@@ -298,11 +298,11 @@ async function getContent(
             provider: Provider.ONETOUCHTV,
             externalId: onetouchtvId,
             image: image,
-            ttl: COMMON_TTL.content,
+            ttl: TTL_MS.content,
           };
           upsertProviderContent(providerContent);
         }
-        cache.set(contentKey, content, COMMON_TTL.content);
+        cache.set(contentKey, content, TTL_MS.content);
       }
       if (!content) {
         logger.error(`Not found onetouchtv ${onetouchtvId}`);
@@ -439,18 +439,15 @@ export async function buildStreamHandler(
         }),
       )
     ).flat();
-    const hasRateLimit = streams.some((stream) =>
-      stream.name?.includes(`${RATE_LIMIT_NAME}`),
-    );
-    const returnStreams = streams.filter(
-      (stream) => !stream.name?.includes(`${RATE_LIMIT_NAME}`),
+    const hasRateLimit = streams.some(
+      (stream) => stream.description == RATE_LIMIT_DESCRIPTION,
     );
     const streamResults: { streams: Stream[] } & Cache = {
-      streams: returnStreams,
+      streams: streams,
     };
-    if (returnStreams.length > 0 && !hasRateLimit) {
+    if (streams.length > 0 && !hasRateLimit) {
       streamResults.cacheMaxAge = 1 * 60 * 60;
-      cache.set(streamKey, streamResults, COMMON_TTL.stream);
+      cache.set(streamKey, streamResults, TTL_MS.stream);
     }
     return streamResults;
   } catch (error) {

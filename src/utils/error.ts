@@ -1,9 +1,8 @@
-import { RATE_LIMIT_NAME } from "./constant.js";
 import { Logger } from "./logger.js";
 
 export class RateLimitError extends Error {
   constructor(message: string) {
-    super(message);
+    super(`${ErrorName.RATE_LIMIT} | ${message}`);
     this.name = ErrorName.RATE_LIMIT;
   }
 }
@@ -79,7 +78,7 @@ export class OnetouchEpisodeError extends Error {
 }
 enum ErrorName {
   ERROR = "Error",
-  RATE_LIMIT = RATE_LIMIT_NAME,
+  RATE_LIMIT = "Rate Limit",
   FUSE = "Fuse Error",
   MATCHING = "Matching Error",
   UNKNOWN = "Unknown Error",
@@ -107,80 +106,45 @@ export function handleError(
   logger: Logger = new Logger("ERROR"),
   message: string = "",
 ): Error | null {
-  // Utils
-  if (error instanceof RateLimitError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof FuseError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof MatchingError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof ProbeInfoError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  // Meta
-  if (error instanceof TmdbError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof TvdbError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  // Kisskh
-  if (error instanceof KisskhDetailError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof KisskhEpisodeError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof KisskhTokenError) {
-    logger.error(`${message} | ${error.message}`);
-    return error;
-  }
-  // Onetouch
-  if (error instanceof OnetouchSearchError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof OnetouchDetailError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  if (error instanceof OnetouchEpisodeError) {
-    logger.warn(`${message} | ${error.message}`);
-    return error;
-  }
-  // Other error
-  if (error instanceof Error) {
-    if (error.message.includes("lock")) {
+  switch (true) {
+    case error instanceof RateLimitError:
+    case error instanceof FuseError:
+    case error instanceof MatchingError:
+    case error instanceof ProbeInfoError:
+    case error instanceof TmdbError:
+    case error instanceof TvdbError:
+    case error instanceof KisskhDetailError:
+    case error instanceof KisskhEpisodeError:
+    case error instanceof OnetouchSearchError:
+    case error instanceof OnetouchDetailError:
+    case error instanceof OnetouchEpisodeError:
+      logger.warn(`${message} | ${error.message}`);
+      return error;
+    case error instanceof KisskhTokenError:
       logger.error(`${message} | ${error.message}`);
-      error.name = ErrorName.DB_LOCK;
       return error;
-    }
-    if (error.message.includes("FOREIGN KEY")) {
-      logger.warn(`${message} | ${error.message}`);
-      error.name = ErrorName.DB_FOREIGN_KEY;
+    case error instanceof Error:
+      if (error.message.includes("lock")) {
+        logger.error(`${message} | ${error.message}`);
+        error.name = ErrorName.DB_LOCK;
+        return error;
+      }
+      if (error.message.includes("FOREIGN KEY")) {
+        logger.warn(`${message} | ${error.message}`);
+        error.name = ErrorName.DB_FOREIGN_KEY;
+        return error;
+      }
+      if (error.message.includes("UNIQUE")) {
+        logger.warn(`${message} | ${error.message}`);
+        error.name = ErrorName.DB_UNIQUE;
+        return error;
+      }
+      error.name = ErrorName.ERROR;
+      logger.error(`${message} | ${error.message}`);
       return error;
-    }
-    if (error.message.includes("UNIQUE")) {
-      logger.warn(`${message} | ${error.message}`);
-      error.name = ErrorName.DB_UNIQUE;
+    default:
+      error.name = ErrorName.UNKNOWN;
+      logger.error(`${message} | ${error}`);
       return error;
-    }
-    error.name = ErrorName.ERROR;
-    logger.error(`${message} | ${error.message}`);
-    return error;
   }
-  error.name = ErrorName.UNKNOWN;
-  logger.error(error);
-  return error;
 }

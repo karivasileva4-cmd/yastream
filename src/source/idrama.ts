@@ -186,7 +186,7 @@ export class IDramaScraper extends BaseProvider {
         {
           url: url,
           name: ENV.DISPLAY_NAME,
-          title: `${formatTitle}`,
+          description: `${formatTitle}`,
           behaviorHints: {
             notWebReady: true,
             bingeGroup: this.displayName,

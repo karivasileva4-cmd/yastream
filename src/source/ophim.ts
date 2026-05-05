@@ -109,7 +109,7 @@ export class OphimScraper extends BaseProvider {
       const streams: Stream[] = [
         {
           name: this.displayName,
-          title: formatTitle,
+          description: formatTitle,
           url: url,
           behaviorHints: {
             notWebReady: true,

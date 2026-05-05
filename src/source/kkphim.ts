@@ -132,7 +132,7 @@ export class KkphimScraper extends BaseProvider {
         );
         const stream: Stream = {
           name: this.displayName,
-          title: formatTitle,
+          description: formatTitle,
           url: proxyLink,
           behaviorHints: {
             countryWhitelist: [iso639FromCountryCode(CountryCode.vi)],

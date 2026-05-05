@@ -1,6 +1,7 @@
 import { Context } from "hono";
 import StreamService from "../../service/resource/stream-service.js";
-import { COMMON_TTL } from "../../db/sqlite.js";
+import { TTL_SECS } from "../../utils/cache.js";
+import { toAbsoluteM3u8 } from "../../utils/playlist.js";
 
 export async function streamApiHandler(c: Context) {
   const id = c.req.param("id");
@@ -13,10 +14,12 @@ export async function streamApiHandler(c: Context) {
     if (!stream || !stream.playlist) {
       return c.text("No streams found", 404);
     }
+    const playlist = toAbsoluteM3u8(stream.url, stream.playlist);
+    stream.playlist = playlist;
     return c.text(stream.playlist, 200, {
       "Content-Type": "application/vnd.apple.mpegurl",
       "Access-Control-Allow-Origin": "*",
-      "Cache-Control": `max-age=${COMMON_TTL.stream / 1000}, public`,
+      "Cache-Control": `max-age=${TTL_SECS.stream}, public`,
     });
   } catch {
     return c.text("Invalid request", 400);

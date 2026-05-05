@@ -1,3 +1,9 @@
+# v0.7.3 2026-05-05
+
+- Get best link from onetouchtv for stream if there are multiple links
+- Show rate limit on stream list if got rate limit from provider
+- Switch from title (deprecated) to description for stream
+
 # v0.7.2 2026-05-02
 
 - Use rose quartz color for accent in landing page

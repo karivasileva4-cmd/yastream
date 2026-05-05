@@ -20,13 +20,12 @@ import {
 import { EContent } from "../db/schema/content.js";
 import { EStreamInsert } from "../db/schema/streams.js";
 import { ESubtitleInsert } from "../db/schema/subtitles.js";
-import { COMMON_TTL } from "../db/sqlite.js";
 import { Prefix, UserConfig } from "../lib/manifest.js";
 import StreamService from "../service/resource/stream-service.js";
 import SubtitleService from "../service/resource/subtitle-service.js";
 import { axiosGet } from "../utils/axios.js";
-import { cache } from "../utils/cache.js";
-import { RATE_LIMIT_NAME } from "../utils/constant.js";
+import { cache, TTL_MS } from "../utils/cache.js";
+import { RATE_LIMIT_DESCRIPTION } from "../utils/constant.js";
 import { hashSHA256 } from "../utils/crypto.js";
 import { getOrigin } from "../utils/domain.js";
 import { ENV } from "../utils/env.js";
@@ -302,10 +301,10 @@ class KissKHScraperr extends BaseProvider {
           if (existingContent) {
             contentId = existingContent.id;
           } else {
-            upsertContent(contentId, tmdbDetail, COMMON_TTL.content);
+            upsertContent(contentId, tmdbDetail, TTL_MS.content);
             upsertProviderContent({
               title: kissItem.title,
-              ttl: COMMON_TTL.provider,
+              ttl: TTL_MS.provider,
               contentId: contentId,
               provider: this.name,
               externalId: kissItem.id.toString(),
@@ -359,7 +358,7 @@ class KissKHScraperr extends BaseProvider {
       date = tmdbDate.toISOString();
       oldContent = await getContentByTmdb(tmdbDetail.id, type);
       if (oldContent) {
-        upsertContent(oldContent.id, tmdbDetail, COMMON_TTL.content);
+        upsertContent(oldContent.id, tmdbDetail, TTL_MS.content);
       }
     }
     const season = 1;
@@ -437,7 +436,7 @@ class KissKHScraperr extends BaseProvider {
         config,
       );
       if (dbStreams.length > 0) {
-        cache.set(streamKey, dbStreams, COMMON_TTL.stream);
+        cache.set(streamKey, dbStreams, TTL_MS.stream);
         return dbStreams;
       }
       let streamId = parseInt(kisskhId ?? "0");
@@ -465,11 +464,23 @@ class KissKHScraperr extends BaseProvider {
         content,
         config,
       );
-      if (streams.length > 0) cache.set(streamKey, streams, COMMON_TTL.stream);
+      if (streams.length > 0) cache.set(streamKey, streams, TTL_MS.stream);
       return streams;
     } catch (error: any) {
       handleError(error, this.logger);
-      if (error instanceof RateLimitError) return [{ name: RATE_LIMIT_NAME }];
+      if (error instanceof RateLimitError)
+        return [
+          {
+            name: this.displayName,
+            description: RATE_LIMIT_DESCRIPTION,
+            externalUrl: getOrigin(),
+            behaviorHints: {
+              notWebReady: true,
+              bingeGroup: `${this.displayName}`,
+              filename: `${RATE_LIMIT_DESCRIPTION}-${this.name}`,
+            },
+          },
+        ];
       return [];
     }
   }
@@ -484,7 +495,7 @@ class KissKHScraperr extends BaseProvider {
       content.episode ?? 1,
     );
     if (savedSubtitles.length > 0) {
-      cache.set(subtitleKey, savedSubtitles, COMMON_TTL.stream);
+      cache.set(subtitleKey, savedSubtitles, TTL_MS.stream);
       return savedSubtitles;
     }
     const search = await this.searchContent(
@@ -546,7 +557,7 @@ class KissKHScraperr extends BaseProvider {
       const oldContent = await getContentByTmdb(tmdbDetail.id, type);
       if (oldContent) {
         const contentId = oldContent.id;
-        upsertContent(contentId, tmdbDetail, COMMON_TTL.content);
+        upsertContent(contentId, tmdbDetail, TTL_MS.content);
         const providerContent = await getProviderContentById(
           `${Prefix.KISSKH}:${kisskhId}`,
         );
@@ -571,8 +582,8 @@ class KissKHScraperr extends BaseProvider {
       }
     }
     // Handle rate limit
-    if (stream.Video.includes(RATE_LIMIT_NAME))
-      throw new RateLimitError(stream.Video);
+    if (stream.Video.includes(RATE_LIMIT_DESCRIPTION))
+      throw new RateLimitError(content.title);
     const url = this._fixUrl(stream.Video);
     const subtitleKey = `subtitles:${type}:${this.name}:${id}:${season}:${episode}`;
     // Handle subtitles
@@ -605,7 +616,7 @@ class KissKHScraperr extends BaseProvider {
       {
         url: url,
         name: this.displayName,
-        title: formatTitle,
+        description: formatTitle,
         behaviorHints: {
           notWebReady: true,
           bingeGroup: `${this.displayName}`,
@@ -621,7 +632,7 @@ class KissKHScraperr extends BaseProvider {
       season: season?.toString() ?? "1",
       episode: episode?.toString() ?? "1",
       url: cleanUrl(url),
-      ttl: COMMON_TTL.stream,
+      ttl: TTL_MS.stream,
     };
     if (info?.resolution) {
       streamRow.resolution = `${info.resolution.width}x${info.resolution.height}`;
@@ -752,7 +763,7 @@ class KissKHScraperr extends BaseProvider {
     } catch (error) {
       if (error instanceof RateLimitError) {
         markKisskhUrlFail(url);
-        return { Video: RATE_LIMIT_NAME };
+        return { Video: RATE_LIMIT_DESCRIPTION };
       }
       handleError(error, this.logger, `Fail to get stream`);
       return null;

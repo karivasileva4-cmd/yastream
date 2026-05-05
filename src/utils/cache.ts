@@ -10,6 +10,18 @@ type CacheValue = {
   expiresAt: number;
 };
 
+export const TTL_SECS = {
+  content: 24 * 60 * 60,
+  provider: 4 * 60 * 60,
+  stream: 1 * 60 * 60,
+};
+export const TTL_MS = {
+  content: TTL_SECS.content * 1000,
+  provider: TTL_SECS.provider * 1000,
+  stream: TTL_SECS.stream * 1000,
+};
+
+
 const logger = new Logger("CACHE");
 class GlobalCache {
   private cache = new Map<string, CacheValue>();

@@ -19,12 +19,11 @@ import {
 import { EContent } from "../db/schema/content.js";
 import { EProviderContentInsert } from "../db/schema/provider_content.js";
 import { EStreamInsert } from "../db/schema/streams.js";
-import { COMMON_TTL } from "../db/sqlite.js";
 import { Prefix, UserConfig } from "../lib/manifest.js";
 import StreamService from "../service/resource/stream-service.js";
 import SubtitleService from "../service/resource/subtitle-service.js";
 import { axiosGet } from "../utils/axios.js";
-import { cache } from "../utils/cache.js";
+import { cache, TTL_MS } from "../utils/cache.js";
 import { hashSHA256 } from "../utils/crypto.js";
 import {
   handleError,
@@ -41,7 +40,6 @@ import { ContentDetail } from "./meta.js";
 import { getPosterUrl, PosterParam } from "./poster/poster.js";
 import { BaseProvider } from "./provider.js";
 import { tmdb } from "./tmdb.js";
-import { ONETOUCHTV_HOST } from "../utils/constant.js";
 
 interface OnetouchtvTop {
   result: {
@@ -148,6 +146,10 @@ const ONETOUCHTV_LANGUAGE: Record<string, CountryCode> = {
   বাংলা: CountryCode.bn,
   ਪੰਜਾਬੀ: CountryCode.pa,
 };
+export const ONETOUCHTV_HOST = Buffer.from(
+  "YWFwYW5lbC5kZXZjb3JwLm1l",
+  "base64",
+).toString("utf-8");
 
 export class OnetouchtvScrapper extends BaseProvider {
   supportedPrefix: Prefix[] = [
@@ -271,7 +273,7 @@ export class OnetouchtvScrapper extends BaseProvider {
             id: onetouchtvId,
             contentId: null,
             title: extractTitle(item.title).title,
-            ttl: COMMON_TTL.provider,
+            ttl: TTL_MS.provider,
             provider: this.name,
             externalId: item.id,
             image: item.image,
@@ -296,7 +298,7 @@ export class OnetouchtvScrapper extends BaseProvider {
             if (existingContent) {
               contentId = existingContent.id;
             } else {
-              upsertContent(contentId, tmdbDetail, COMMON_TTL.content);
+              upsertContent(contentId, tmdbDetail, TTL_MS.content);
               upsertProviderContent({
                 ...providerContent,
                 contentId: contentId,
@@ -341,7 +343,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         year = tmdbDetail.year;
         oldContent = await getContentByTmdb(tmdbDetail.id, type);
         if (oldContent) {
-          upsertContent(oldContent.id, tmdbDetail, COMMON_TTL.content);
+          upsertContent(oldContent.id, tmdbDetail, TTL_MS.content);
         }
       }
       const background = tmdbDetail?.background || detail.image;
@@ -426,7 +428,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         config,
       );
       if (dbStreams.length > 0) {
-        cache.set(streamKey, dbStreams, COMMON_TTL.stream);
+        cache.set(streamKey, dbStreams, TTL_MS.stream);
         return dbStreams;
       }
       let detail = null;
@@ -444,7 +446,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         const oldContent = await getContentByTmdb(tmdbDetail.id, type);
         if (oldContent) {
           const contentId = oldContent.id;
-          upsertContent(contentId, tmdbDetail, COMMON_TTL.content);
+          upsertContent(contentId, tmdbDetail, TTL_MS.content);
           const providerContent = await getProviderContentById(
             `${Prefix.ONETOUCHTV}:${detail.result.id}`,
           );
@@ -482,9 +484,8 @@ export class OnetouchtvScrapper extends BaseProvider {
       const streamRows: Omit<EStreamInsert, "createdAt">[] = [];
       const streams = await Promise.all(
         episodeDetail.result.sources.map(async (source, index) => {
-          const info = config.info
-            ? await probeStreamInfo(source.url)
-            : undefined;
+          const { playlist, url } = await this.getFinalPlaylist(source.url);
+          const info = config.info ? await probeStreamInfo(url) : undefined;
           const formatTitle = formatStreamTitle(
             detail.result.title,
             year,
@@ -493,18 +494,15 @@ export class OnetouchtvScrapper extends BaseProvider {
             info,
           );
           const stream: Stream = {
-            url: source.url,
+            url: url,
             name: this.displayName,
-            title: formatTitle,
+            description: formatTitle,
             behaviorHints: {
               notWebReady: true,
               bingeGroup: `${this.displayName}-${index}`,
               filename: `${formatTitle}-${this.name}`,
             },
           };
-          // if (source.headers && stream.behaviorHints?.proxyHeaders) {
-          //   stream.behaviorHints.proxyHeaders.request = source.headers;
-          // }
           // Save stream to db
           const streamRow: Omit<EStreamInsert, "createdAt"> = {
             id: uuidv7(),
@@ -514,7 +512,7 @@ export class OnetouchtvScrapper extends BaseProvider {
             season: season?.toString() ?? "1",
             episode: episode?.toString() ?? "1",
             url: cleanUrl(source.url),
-            ttl: COMMON_TTL.stream,
+            ttl: TTL_MS.stream,
           };
           if (info?.resolution) {
             streamRow.resolution = `${info.resolution.width}x${info.resolution.height}`;
@@ -523,46 +521,16 @@ export class OnetouchtvScrapper extends BaseProvider {
           if (info?.hours && info?.minutes) {
             streamRow.duration = (info.hours * 60 + info.minutes).toString();
           }
-          if (source.url.includes("m3u8")) {
-            let playlistUrl = source.url;
-            let playlist: string | null = null;
-            let attempts = 0;
-            const maxAttempts = 2;
-            while (attempts < maxAttempts) {
-              this.logger.log(`GET playlist | ${playlistUrl}`);
-              playlist = await axiosGet<string>(playlistUrl);
-              if (!playlist) break;
-              if (!playlist.includes(ONETOUCHTV_HOST)) {
-                break;
-              }
-              // Parse last EXT-X-STREAM-INF URL
-              const lines = playlist.split("\n");
-              let lastStreamUrl: string | null = null;
-              for (let i = lines.length - 1; i >= 0; i--) {
-                const line = lines[i]?.trim();
-                if (line && !line.startsWith("#")) {
-                  lastStreamUrl = line;
-                  break;
-                }
-              }
-              if (!lastStreamUrl) break;
-              this.logger.log(`Playlist redirected to ${lastStreamUrl}`);
-              playlistUrl = lastStreamUrl;
-              attempts++;
-            }
-            if (playlist) {
-              streamRow.playlist = playlist;
-              streamRow.hash = hashSHA256(playlist);
-              streamRows.push(streamRow);
-            }
-          } else {
-            streamRows.push(streamRow);
+          if (playlist) {
+            streamRow.playlist = playlist;
+            streamRow.hash = hashSHA256(playlist);
           }
+          streamRows.push(streamRow);
           return stream;
         }),
       );
       if (streams.length > 0) {
-        cache.set(streamKey, streams, COMMON_TTL.stream);
+        cache.set(streamKey, streams, TTL_MS.stream);
         upsertStream(streamRows);
       }
       return streams;
@@ -570,6 +538,43 @@ export class OnetouchtvScrapper extends BaseProvider {
       handleError(error, this.logger, `Fail to get streams ${content.title}`);
       return [];
     }
+  }
+
+  async getFinalPlaylist(
+    url: string,
+  ): Promise<{ playlist: string | null; url: string }> {
+    if (url.includes("m3u8")) {
+      let playlistUrl = url;
+      let playlist: string | null = null;
+      let attempts = 0;
+      const maxAttempts = 2;
+      while (attempts < maxAttempts) {
+        this.logger.log(`GET playlist | ${playlistUrl}`);
+        playlist = await axiosGet<string>(playlistUrl);
+        if (!playlist) break;
+        if (!playlist.includes(ONETOUCHTV_HOST)) {
+          break;
+        }
+        // Parse last EXT-X-STREAM-INF URL
+        const lines = playlist.split("\n");
+        let lastStreamUrl: string | null = null;
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const line = lines[i]?.trim();
+          if (line && !line.startsWith("#")) {
+            lastStreamUrl = line;
+            break;
+          }
+        }
+        if (!lastStreamUrl) break;
+        this.logger.log(`Playlist redirected to ${lastStreamUrl}`);
+        playlistUrl = lastStreamUrl;
+        attempts++;
+      }
+      if (playlist) {
+        return { playlist: playlist, url: playlistUrl };
+      }
+    }
+    return { playlist: null, url: url };
   }
 
   async getSubtitles(content: ContentDetail): Promise<Subtitle[]> {
@@ -583,7 +588,7 @@ export class OnetouchtvScrapper extends BaseProvider {
       content.episode ?? 1,
     );
     if (savedSubtitles.length > 0) {
-      cache.set(subtitleKey, savedSubtitles, COMMON_TTL.stream);
+      cache.set(subtitleKey, savedSubtitles, TTL_MS.stream);
       return savedSubtitles;
     }
     let detail = null;
@@ -666,7 +671,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         provider: this.name,
         externalId: detailData.result.id,
         image: detailData.result.image,
-        ttl: COMMON_TTL.content,
+        ttl: TTL_MS.content,
         type: "movie",
         title: extractTitle(detailData.result.title).title,
         year: parseInt(detailData.result.year),
