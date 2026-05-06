@@ -3,6 +3,7 @@
 - Get best link from onetouchtv for stream if there are multiple links
 - Show rate limit on stream list if got rate limit from provider
 - Switch from title (deprecated) to description for stream
+- TMDB: Use append response for less requests
 
 # v0.7.2 2026-05-02
 

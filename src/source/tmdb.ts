@@ -3,11 +3,11 @@ import { AxiosRequestConfig } from "axios";
 import { URLSearchParams } from "url";
 import { axiosGet } from "../utils/axios.js";
 import { ENV } from "../utils/env.js";
+import { handleError, TmdbError } from "../utils/error.js";
 import { extractTitle } from "../utils/format.js";
 import { matchTitle, Search } from "../utils/fuse.js";
 import { BaseMeta, ContentDetail } from "./meta.js";
 import { Provider } from "./provider.js";
-import { handleError, TmdbError } from "../utils/error.js";
 
 export interface TmdbFindResponse {
   movie_results: TmdbMovieResult[];
@@ -15,6 +15,15 @@ export interface TmdbFindResponse {
   tv_results: TmdbTvResult[];
   tv_episode_results: any[];
   tv_season_results: any[];
+}
+
+export interface TmdbMovieImagesExternalId extends TmdbMovieResult {
+  images?: TmdbTvImages;
+  external_ids?: TmdbExternalID;
+}
+export interface TmdbTvImagesExternalId extends TmdbTvResult {
+  images?: TmdbTvImages;
+  external_ids?: TmdbExternalID;
 }
 
 export interface TmdbTvResult {
@@ -81,6 +90,7 @@ class TMDBService extends BaseMeta {
   private baseUrl: string = "https://api.themoviedb.org/3";
   private imageUrl: string = "https://image.tmdb.org";
 
+  // Search
   async searchDetail(
     search: string,
     type: ContentType,
@@ -94,36 +104,6 @@ class TMDBService extends BaseMeta {
     } else {
       return await this.searchMovieDetail(search, year);
     }
-  }
-
-  async findDetailImdb(
-    imdbId: string,
-    type: ContentType,
-  ): Promise<ContentDetail | null> {
-    if (type === "series") {
-      return await this.findSeriesDetail(imdbId);
-    } else {
-      return await this.findMovieDetail(imdbId);
-    }
-  }
-
-  async getDetailTmdb(
-    tmdbId: string,
-    type: ContentType,
-  ): Promise<ContentDetail | null> {
-    if (type === "series") {
-      return await this.getSeriesDetail(tmdbId);
-    } else {
-      return await this.getMovieDetail(tmdbId);
-    }
-  }
-
-  async getSearchSeries(title: string, year?: number): Promise<TmdbTvSearch> {
-    if (year) {
-      const param = { query: title, year: year };
-      return await this._getRequest(`/search/tv`, param);
-    }
-    return await this._getRequest(`/search/tv`, { query: title });
   }
 
   async searchSeriesDetail(
@@ -151,29 +131,43 @@ class TMDBService extends BaseMeta {
       const detail = matchTitle<ContentDetail>(titles, title, year);
       const tv = detail[0];
       if (tv) {
-        const images: TmdbTvImages = await this._getRequest(
-          `/tv/${tv.tmdbId}/images`,
-        );
-        const detail = await this.getSeriesDetail(tv.id);
-        if (detail?.imdbId) {
-          tv.imdbId = detail?.imdbId;
-        }
         this.logger.log(`Found | ${tv.title} ${tv.year} ${tv.imdbId || ""}`);
-        if (images) {
-          if (images.logos.length > 0) {
-            const filePath =
-              images.logos.find((logo: any) => logo.iso_639_1 === "en")
-                ?.file_path ||
-              images.logos[0]?.file_path ||
-              "";
-            tv.logo = `${this.imageUrl}/t/p/w500${filePath}`;
-          }
-        }
-        return tv;
+        const detail = await this.getSeriesDetail(tv.id);
+        return detail;
       }
       return null;
     } catch (error: any) {
       handleError(error, this.logger, `Search series`);
+      return null;
+    }
+  }
+
+  async getSearchSeries(title: string, year?: number): Promise<TmdbTvSearch> {
+    if (year) {
+      const param = { query: title, year: year };
+      return await this._getRequest(`/search/tv`, param);
+    }
+    return await this._getRequest(`/search/tv`, { query: title });
+  }
+
+  async searchMovieDetail(
+    title: string,
+    year?: number,
+  ): Promise<ContentDetail | null> {
+    try {
+      const movieResponse = await this.getSearchMovie(title, year);
+      const results = this.getMovies(movieResponse.results);
+      const movie = matchTitle(results, title, year)[0];
+      if (movie) {
+        this.logger.log(
+          `Found | ${movie.title} ${movie.year} ${movie.imdbId || ""}`,
+        );
+        const detail = await this.getMovieDetail(movie.id);
+        return detail;
+      }
+      return null;
+    } catch (error: any) {
+      handleError(error, this.logger, `Search movie`);
       return null;
     }
   }
@@ -186,70 +180,16 @@ class TMDBService extends BaseMeta {
     return await this._getRequest(`/search/movie`, { query: title });
   }
 
-  async searchMovieDetail(
-    title: string,
-    year?: number,
+  // Find IMDB
+  async findDetailImdb(
+    imdbId: string,
+    type: ContentType,
   ): Promise<ContentDetail | null> {
-    try {
-      const movieResponse = await this.getSearchMovie(title, year);
-      const results = this.getMovies(movieResponse.results);
-      const movie = matchTitle(results, title, year)[0];
-      if (movie) {
-        const detail = await this.getMovieDetail(movie.id);
-        if (detail?.imdbId) {
-          movie.imdbId = detail?.imdbId;
-        }
-        return movie;
-      }
-      return null;
-    } catch (error: any) {
-      handleError(error, this.logger, `Search movie`);
-      return null;
+    if (type === "series") {
+      return await this.findSeriesDetail(imdbId);
+    } else {
+      return await this.findMovieDetail(imdbId);
     }
-  }
-  async findMovieDetail(imdbId: string): Promise<ContentDetail | null> {
-    try {
-      const movieResponse: TmdbFindResponse = await this._getRequest(
-        "/find/" + imdbId,
-        {
-          external_source: "imdb_id",
-        },
-      );
-      const movie = movieResponse.movie_results?.[0];
-
-      if (movie) {
-        return this.getDetailFromMovie(movie);
-      }
-
-      return null;
-    } catch (error: any) {
-      handleError(error, this.logger, `Find movie`);
-      return null;
-    }
-  }
-  getMovies(movies: TmdbMovieResult[]) {
-    return movies.map((movie) => {
-      return this.getDetailFromMovie(movie);
-    });
-  }
-  getDetailFromMovie(movie: TmdbMovieResult): ContentDetail {
-    const year = new Date(movie.release_date).getFullYear();
-    const thumbnail = `${this.imageUrl}/t/p/w500${movie.poster_path}`;
-    const background = movie.backdrop_path
-      ? `${this.imageUrl}/t/p/w500${movie.backdrop_path}`
-      : undefined;
-    const content: ContentDetail = {
-      id: movie.id.toString(),
-      title: movie.title,
-      overview: movie.overview,
-      thumbnail: thumbnail,
-      year: year,
-      type: "movie",
-      tmdbId: movie.id,
-    };
-    if (background) content.background = background;
-    if (movie.imdb_id) content.imdbId = movie.imdb_id;
-    return content;
   }
 
   async findSeriesDetail(imdbId: string): Promise<ContentDetail | null> {
@@ -282,81 +222,163 @@ class TMDBService extends BaseMeta {
     }
   }
 
-  async getMovieDetail(tmdbId: string): Promise<ContentDetail | null> {
+  async findMovieDetail(imdbId: string): Promise<ContentDetail | null> {
     try {
-      const movie: TmdbMovieResult = await this._getRequest("/movie/" + tmdbId);
+      const movieResponse: TmdbFindResponse = await this._getRequest(
+        "/find/" + imdbId,
+        {
+          external_source: "imdb_id",
+        },
+      );
+      const movie = movieResponse.movie_results?.[0];
 
       if (movie) {
-        const year = new Date(movie.release_date).getFullYear();
-        const thumbnail = `${this.imageUrl}/t/p/w500${movie.poster_path}`;
-        const content: ContentDetail = {
-          id: movie.id.toString(),
-          title: movie.title,
-          overview: movie.overview,
-          thumbnail: thumbnail,
-          year: year,
-          type: "movie",
-          tmdbId: movie.id,
-        };
-        if (movie.imdb_id) content.imdbId = movie.imdb_id;
-        return content;
+        return this.toDetail(movie);
       }
 
       return null;
+    } catch (error: any) {
+      handleError(error, this.logger, `Find movie`);
+      return null;
+    }
+  }
+
+  // Get TMDB
+  async getDetailTmdb(
+    tmdbId: string,
+    type: ContentType,
+  ): Promise<ContentDetail | null> {
+    if (type === "series") {
+      return await this.getSeriesDetail(tmdbId);
+    } else {
+      return await this.getMovieDetail(tmdbId);
+    }
+  }
+
+  getMovies(movies: TmdbMovieResult[]) {
+    return movies.map((movie) => {
+      return this.toDetail(movie);
+    });
+  }
+
+  toDetail(movie: TmdbMovieResult): ContentDetail {
+    const year = new Date(movie.release_date).getFullYear();
+    const thumbnail = `${this.imageUrl}/t/p/w500${movie.poster_path}`;
+    const background = movie.backdrop_path
+      ? `${this.imageUrl}/t/p/w500${movie.backdrop_path}`
+      : undefined;
+    const content: ContentDetail = {
+      id: movie.id.toString(),
+      title: movie.title,
+      overview: movie.overview,
+      thumbnail: thumbnail,
+      year: year,
+      type: "movie",
+      tmdbId: movie.id,
+    };
+    if (background) content.background = background;
+    if (movie.imdb_id) content.imdbId = movie.imdb_id;
+    return content;
+  }
+
+  async getMovieDetail(tmdbId: string): Promise<ContentDetail | null> {
+    this.logger.debug(`ID ${tmdbId}`);
+    try {
+      const movie = await this.getMovieDetailImageExternalId(tmdbId);
+      if (!movie) return null;
+      const images = movie.images;
+      const externalId = movie.external_ids;
+      const year = new Date(movie.release_date).getFullYear();
+      const thumbnail = `${this.imageUrl}/t/p/w500${movie.poster_path}`;
+      const content: ContentDetail = {
+        id: movie.id.toString(),
+        title: movie.title,
+        overview: movie.overview,
+        thumbnail: thumbnail,
+        year: year,
+        type: "movie",
+        tmdbId: movie.id,
+      };
+      if (movie.imdb_id) content.imdbId = movie.imdb_id;
+      if (externalId?.imdb_id) content.imdbId = externalId.imdb_id;
+      if (externalId?.tvdb_id) content.tvdbId = externalId.tvdb_id;
+      const { logo, background } = this.extractLogoAndBackground(images);
+      if (logo) content.logo = logo;
+      if (background) content.background = background;
+      return content;
     } catch (error: any) {
       handleError(error, this.logger, `Get movie details error`);
       return null;
     }
   }
 
-  async getSeriesDetail(id: string): Promise<ContentDetail | null> {
-    this.logger.debug(`ID ${id}`);
+  async getSeriesDetail(tmdbId: string): Promise<ContentDetail | null> {
+    this.logger.debug(`ID ${tmdbId}`);
     try {
-      const [series, externalId] = await Promise.all([
-        this._getRequest<TmdbTvResult>("/tv/" + id),
-        this._getExternalId(id, "series"),
-      ]);
-      if (series) {
-        const year = new Date(series.first_air_date).getFullYear();
-        const thumbnail = `${this.imageUrl}/t/p/w500${series.poster_path}`;
-        const content: ContentDetail = {
-          id: series.id.toString(),
-          title: series.name,
-          overview: series.overview,
-          year: year,
-          type: "series",
-          tmdbId: series.id,
-          thumbnail: thumbnail,
-        };
-        if (externalId?.imdb_id) content.imdbId = externalId.imdb_id;
-        if (externalId?.tvdb_id) content.tvdbId = externalId.tvdb_id;
-        return content;
-      }
-
-      return null;
+      const series = await this.getTvDetailImageExternalId(tmdbId);
+      if (!series) return null;
+      const images = series.images;
+      const externalId = series.external_ids;
+      const year = new Date(series.first_air_date).getFullYear();
+      const thumbnail = `${this.imageUrl}/t/p/w500${series.poster_path}`;
+      const content: ContentDetail = {
+        id: series.id.toString(),
+        title: series.name,
+        overview: series.overview,
+        year: year,
+        type: "series",
+        tmdbId: series.id,
+        thumbnail: thumbnail,
+      };
+      if (externalId?.imdb_id) content.imdbId = externalId.imdb_id;
+      if (externalId?.tvdb_id) content.tvdbId = externalId.tvdb_id;
+      const { logo, background } = this.extractLogoAndBackground(images);
+      if (logo) content.logo = logo;
+      if (background) content.background = background;
+      return content;
     } catch (error: any) {
       handleError(error, this.logger, `Get series details error`);
       return null;
     }
   }
 
-  private async _getExternalId(
-    tmdbId: string,
-    type: ContentType,
-  ): Promise<TmdbExternalID | null> {
-    try {
-      const endpoint =
-        type === "movie"
-          ? `/movie/${tmdbId}/external_ids`
-          : `/tv/${tmdbId}/external_ids`;
-      const response = await this._getRequest<TmdbExternalID>(endpoint);
-      return response;
-    } catch (error) {
-      handleError(error, this.logger, `Get external ID error`);
-      return null;
-    }
+  // Combined request
+  async getTvDetailImageExternalId(
+    id: string,
+  ): Promise<TmdbTvImagesExternalId> {
+    return await this._getRequest<TmdbTvImagesExternalId>(
+      `/tv/${id}?append_to_response=images,external_ids`,
+    );
   }
 
+  async getMovieDetailImageExternalId(
+    id: string,
+  ): Promise<TmdbMovieImagesExternalId> {
+    return await this._getRequest<TmdbMovieImagesExternalId>(
+      `/movie/${id}?append_to_response=images,external_ids`,
+    );
+  }
+
+  extractLogoAndBackground(images?: TmdbTvImages) {
+    if (!images) return { logo: "", background: "" };
+    const logoPath =
+      images.logos.find((logo: any) => logo.iso_639_1 === "en")?.file_path ||
+      images.logos[0]?.file_path ||
+      "";
+    const backdropPath =
+      images.backdrops.find((logo: any) => logo.iso_639_1 === "en")
+        ?.file_path ||
+      images.backdrops[0]?.file_path ||
+      "";
+
+    const logo = logoPath ? `${this.imageUrl}/t/p/w500${logoPath}` : "";
+    const background = backdropPath
+      ? `${this.imageUrl}/t/p/original${backdropPath}`
+      : "";
+    return { logo, background };
+  }
+
+  // Request with auth
   private async _getRequest<T>(
     endpoint: string,
     params: Record<string, any> = {},
