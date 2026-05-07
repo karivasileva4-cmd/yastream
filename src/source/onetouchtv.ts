@@ -198,6 +198,10 @@ export class OnetouchtvScrapper extends BaseProvider {
             type,
             fallbackUrl: tmdbDetail.thumbnail || poster,
           };
+          if (tmdbDetail.imdbId) {
+            posterParam.prefix = Prefix.IMDB;
+            posterParam.id = tmdbDetail.imdbId;
+          }
           poster = await getPosterUrl(posterParam, config);
         }
         item.image = poster;
@@ -291,6 +295,10 @@ export class OnetouchtvScrapper extends BaseProvider {
               type,
               fallbackUrl: tmdbDetail.thumbnail || poster,
             };
+            if (tmdbDetail.imdbId) {
+              posterParam.prefix = Prefix.IMDB;
+              posterParam.id = tmdbDetail.imdbId;
+            }
             poster = await getPosterUrl(posterParam, config);
             // Save content to DB
             const existingContent = await getContentByTmdb(tmdbDetail.id, type);

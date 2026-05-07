@@ -198,6 +198,10 @@ class KissKHScraperr extends BaseProvider {
             type,
             fallbackUrl: tmdbDetail.thumbnail || kissItem.thumbnail,
           };
+          if (tmdbDetail.imdbId) {
+            posterParam.prefix = Prefix.IMDB;
+            posterParam.id = tmdbDetail.imdbId;
+          }
           poster = await getPosterUrl(posterParam, config);
         }
 
@@ -293,6 +297,10 @@ class KissKHScraperr extends BaseProvider {
             type,
             fallbackUrl: tmdbDetail.thumbnail || poster,
           };
+          if (tmdbDetail.imdbId) {
+            posterParam.prefix = Prefix.IMDB;
+            posterParam.id = tmdbDetail.imdbId;
+          }
           poster = await getPosterUrl(posterParam, config);
 
           // Save content to DB
