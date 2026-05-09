@@ -5,6 +5,11 @@
   "scripts": {
     "start": "node --env-file=.env dist/server.js",
     "build": "tsc",
+    "test:web": "vitest run --project web",
+    "test:source": "vitest run --project source",
+    "test:service": "vitest run --project service",
+    "test:browser": "vitest run --project browser",
+    "test": "vitest run",
     "dev": "tsc && node --trace-warnings --env-file=.env dist/server.js",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
@@ -17,30 +22,36 @@
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "@stremio-addon/sdk": "github:hoangtamthai/stremio-addon-sdk#sdk",
+    "@torbox/torbox-api": "^1.0.9",
     "@umami/node": "^0.4.0",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "axios-rate-limit": "^1.9.0",
     "better-sqlite3": "^12.9.0",
     "cheerio": "^1.2.0",
+    "cron": "^4.4.0",
     "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",
     "fuse.js": "^7.3.0",
-    "fuzzball": "^2.2.3",
-    "hono": "^4.12.15",
+    "fuzzball": "^2.2.6",
+    "hono": "^4.12.18",
     "hono-rate-limiter": "^0.5.3",
     "hono-tailwind": "^3.0.1",
+    "puppeteer": "^24.43.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "tailwindcss": "^4.2.4",
     "uuidv7": "^1.2.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/crypto-js": "^4.2.2",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.6.1",
     "@types/probe-image-size": "^7.2.5",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

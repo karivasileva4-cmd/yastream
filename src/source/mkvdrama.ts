@@ -1,0 +1,699 @@
+import {
+  CatalogHandlerArgs,
+  ContentType,
+  MetaDetail,
+  MetaPreview,
+  MetaVideo,
+  Stream,
+  Subtitle,
+} from "@stremio-addon/sdk";
+import * as cheerio from "cheerio";
+import { CookieData } from "puppeteer";
+import { uuidv7 } from "uuidv7";
+import {
+  getContentByTmdb,
+  getProviderContentById,
+  upsertContent,
+  upsertProviderContent,
+  upsertStream,
+} from "../db/queries.js";
+import { upsertMkvdrama as upsertMkvdramas } from "../db/query/mkvdrama.js";
+import { upsertOuos } from "../db/query/ouo.js";
+import { EJob, JOB_STATUS, JOB_TYPE } from "../db/schema/job.js";
+import { EOuo } from "../db/schema/ouo.js";
+import { EStreamInsert } from "../db/schema/streams.js";
+import { Prefix, UserConfig } from "../lib/manifest.js";
+import { JobMkvdrama, upsertJob } from "../service/job/job.js";
+import StreamService from "../service/resource/stream-service.js";
+import { axiosGet } from "../utils/axios.js";
+import {
+  FlareSolverrResponse,
+  getFlareSolverr,
+} from "../utils/browser/flaresolverr.js";
+import { getRedirectedUrlCDP } from "../utils/browser/puppeteer.js";
+import { cache, TTL_MS } from "../utils/cache.js";
+import { handleError, MkvdramaError, OuoError } from "../utils/error.js";
+import { extractTitle } from "../utils/format.js";
+import { matchTitle } from "../utils/fuse.js";
+import { getResolutionFromQuality, QUALITY } from "../utils/info.js";
+import {
+  filterPixeldrainUrls,
+  getPixeldrainDownloadUrl,
+} from "./hoster/pixeldrain.js";
+import { ContentDetail } from "./meta.js";
+import { BaseProvider } from "./provider.js";
+import { tmdb } from "./tmdb.js";
+import { getOuoFinalUrl, getOuoId, OUO_HOSTS } from "./web/ouo.js";
+import { getUrlsFromViewcrate } from "./web/viewcrate.js";
+
+interface MkvdramaSeries {
+  id: string;
+  title: string;
+  url: string;
+  poster: string;
+  type: ContentType;
+  country: string;
+}
+interface MkvdramaSearch {
+  url: string;
+  title: string;
+  mkvdramaId: string;
+}
+
+interface MkvdramaDetail {
+  title: string;
+  description: string;
+  thumbnail: string;
+  url: string;
+}
+
+interface MkvdramaEpisode {
+  id: string;
+  number: number;
+  title: string;
+  url: string;
+}
+
+export const MKVDRAMA_HOST = "mkvdrama.net";
+export const MKVDRAMA_ORIGIN = `https://${MKVDRAMA_HOST}`;
+const BEST_QUALITIES = ["2160p", "1080pHD", "1080p"];
+
+export default class MkvdramaScraper extends BaseProvider {
+  readonly baseUrl = MKVDRAMA_ORIGIN;
+  readonly supportedPrefix: Prefix[] = [
+    Prefix.IMDB,
+    Prefix.TMDB,
+    Prefix.TVDB,
+    Prefix.KISSKH,
+    Prefix.ONETOUCHTV,
+  ];
+  readonly pageSize = 20;
+
+  async searchCatalog(
+    args: CatalogHandlerArgs,
+    config: UserConfig,
+  ): Promise<MetaPreview[]> {
+    const { type, extra } = args;
+    const search = extra.search;
+    if (!search) return [];
+    this.logger.log(`Search | ${search}`);
+    const url = `${this.baseUrl}/search?q=${search}`;
+    const cacheKey = `mkvdrama:search:${url}`;
+    const cacheResult: MetaPreview[] = cache.get(cacheKey);
+    if (cacheResult) return cacheResult;
+    const items = await this.getItems(url);
+    const catalog: MetaPreview[] = items.map((item) => ({
+      id: `${this.name}:${item.id}`,
+      type: type || "series",
+      name: item.title,
+      poster: item.poster,
+    }));
+    cache.set(cacheKey, catalog, 30 * 60 * 1000);
+    return catalog;
+  }
+
+  async getCatalog(
+    args: CatalogHandlerArgs,
+    config: UserConfig,
+  ): Promise<MetaPreview[]> {
+    const { type, extra } = args;
+    const skip = extra.skip;
+    const page = skip ? Math.ceil(skip / this.pageSize) + 1 : 1;
+    const url = `${this.baseUrl}/titles/?type=${type || "drama"}&order=latest&page=${page}`;
+    const cacheKey = `mkvdrama:catalog:${url}`;
+    const cacheResult: MetaPreview[] = cache.get(cacheKey);
+    if (cacheResult) return cacheResult;
+    const items = await this.getItems(url);
+    const catalog: MetaPreview[] = items.map((item) => ({
+      id: `mkvdrama:${item.id}`,
+      type: type || "series",
+      name: item.title,
+      poster: item.poster,
+    }));
+    cache.set(cacheKey, catalog, 60 * 60 * 1000);
+    return catalog;
+  }
+
+  async getMeta(
+    content: ContentDetail,
+    type: ContentType,
+  ): Promise<MetaDetail | null> {
+    const id = content.mkvdramaId;
+    if (!id) return null;
+    const metaKey = `meta:${this.name}:${id}`;
+    const cacheMeta: MetaDetail = cache.get(metaKey);
+    if (cacheMeta) return cacheMeta;
+    const data = await this.getDetailAndEpisodes(id);
+    if (!data) return null;
+    const { detail, episodes } = data;
+    if (!detail) return null;
+    const meta: MetaDetail = {
+      ...detail,
+      type: "series",
+      videos: episodes,
+    };
+    cache.set(metaKey, meta, 60 * 60 * 1000);
+    return meta;
+  }
+
+  async getStreams(
+    content: ContentDetail,
+    config: UserConfig,
+  ): Promise<Stream[]> {
+    try {
+      const { title, type, year, id } = content;
+      this.logger.log(`Stream | ${title} ${id}`);
+      let mkvdramaId = content.mkvdramaId;
+      const episode = content.episode ?? 1;
+      const season = content.season ?? 1;
+      const streamKey = `streams:${type}:${this.name}:${id}:${season}:${episode}`;
+      const cacheStreams: Stream[] = cache.get(streamKey);
+      if (cacheStreams) return cacheStreams;
+
+      if (!mkvdramaId) {
+        mkvdramaId = (await this.getSearch(title, year))?.mkvdramaId;
+      }
+      if (!mkvdramaId) return [];
+      const dbStreams = await StreamService.getDbStreams(
+        `${this.name}:${mkvdramaId}`,
+        season ?? 1,
+        episode ?? 1,
+        this.displayName,
+        config,
+      );
+      if (dbStreams.length > 0) {
+        cache.set(streamKey, dbStreams, TTL_MS.stream);
+        return dbStreams;
+      }
+
+      // upsert job
+      upsertJob({
+        id: `job:streams:${this.name}:${mkvdramaId}`,
+        status: JOB_STATUS.PENDING,
+        type: JOB_TYPE.MKVDRAMA_STREAM,
+        data: JSON.stringify({ mkvdramaId, content }),
+        createdAt: Date.now(),
+      });
+      return [];
+
+      // const data = await this.getDetailAndEpisodes(mkvdramaId);
+      // if (!data) return [];
+      // if (!(data.links.length > 0)) return [];
+      // const detail = data.detail;
+
+      // // resolve all links
+      // const rawLinks = await Promise.all(
+      //   data.links.map(async (link) => {
+      //     const redirectUrl = `${this.baseUrl}${link.link}`;
+      //     this.logger.log(`Redirect Url | ${redirectUrl}`);
+      //     // get ouoLink from flare -> if fail then browser CDP
+      //     const ouoLink = await this.getRedirectedUrl(
+      //       redirectUrl,
+      //       data.response?.solution?.cookies,
+      //       data.response?.solution?.userAgent,
+      //     );
+      //     return { link: ouoLink, quality: link.quality };
+      //   }),
+      // );
+      // const links = rawLinks.filter(
+      //   (link) => link !== null && BEST_QUALITIES.includes(link.quality),
+      // );
+
+      // // return streams for all links without real links
+      // const bestLink = data.links.reverse().find((link) => {
+      //   return BEST_QUALITIES.includes(link.quality);
+      // });
+      // if (!bestLink) return [];
+      // const redirectUrl = `${this.baseUrl}${bestLink.link}`;
+      // this.logger.log(`Redirect Url | ${redirectUrl}`);
+      // // get ouoLink from flare -> if fail then browser CDP
+      // const ouoLink = await this.getRedirectedUrl(
+      //   redirectUrl,
+      //   data.response?.solution?.cookies,
+      //   data.response?.solution?.userAgent,
+      // );
+      // if (!ouoLink) return [];
+      // const viewcrateLink = await getOuoFinalUrl(ouoLink);
+      // this.logger.log(`Final Url | ${viewcrateLink}`);
+      // if (!viewcrateLink) return [];
+      // const urls = await getUrlsFromViewcrate(viewcrateLink);
+      // const pixeldrainUrls = await filterPixeldrainUrls(urls);
+      // const pixeldrainUrl = pixeldrainUrls[episode - 1];
+      // if (!pixeldrainUrl) return [];
+      // const streamUrl = getPixeldrainDownloadUrl(pixeldrainUrl);
+      // const streams = links.map((link, index) => {
+      //   const info: StreamInfo = {
+      //     size: 0,
+      //     resolution: getResolutionFromQuality(link.quality),
+      //   };
+      //   const formatTitle = formatStreamTitle(
+      //     title,
+      //     year,
+      //     season,
+      //     episode,
+      //     info,
+      //   );
+      //   const stream: Stream = {
+      //     url: RedirectService.getRedirectApiUrl(
+      //       `${link.link}:${season}:${episode}`,
+      //     ),
+      //     name: this.displayName,
+      //     title: formatTitle,
+      //     behaviorHints: {
+      //       notWebReady: true,
+      //       bingeGroup: this.displayName,
+      //       filename: `${formatTitle}-${this.name}`,
+      //     },
+      //   };
+      //   return stream;
+      // });
+      // const streams: Stream[] = [
+      //   {
+      //     url: streamUrl,
+      //     name: this.displayName,
+      //     title: formatTitle,
+      //     behaviorHints: {
+      //       notWebReady: true,
+      //       bingeGroup: this.displayName,
+      //       filename: `${formatTitle}-${this.name}`,
+      //     },
+      //   },
+      // ];
+      // cache.set(streamKey, streams, TTL_MS.stream);
+
+      // Save content to DB
+      // const tmdbDetail = await tmdb.searchDetail(content.title, type);
+      // if (tmdbDetail) {
+      //   const oldContent = await getContentByTmdb(tmdbDetail.id, type);
+      //   if (oldContent) {
+      //     const contentId = oldContent.id;
+      //     upsertContent(contentId, tmdbDetail, TTL_MS.content);
+      //     const providerContent = await getProviderContentById(
+      //       `${Prefix.MKDRAMA}:${mkvdramaId}`,
+      //     );
+      //     if (providerContent) {
+      //       upsertProviderContent({
+      //         ...providerContent,
+      //         contentId: contentId,
+      //       });
+      //     } else {
+      //       upsertProviderContent({
+      //         id: `${Prefix.MKDRAMA}:${mkvdramaId}`,
+      //         contentId: contentId,
+      //         title: extractTitle(detail.name).title,
+      //         ttl: null,
+      //         provider: this.name,
+      //         externalId: mkvdramaId.toString(),
+      //         image: detail.poster,
+      //         year: year,
+      //         type: type,
+      //       });
+      //     }
+      //   }
+      // }
+
+      // return streams;
+    } catch (error) {
+      handleError(error, this.logger, `Fail getStreams ${content.title}`);
+      return [];
+    }
+  }
+
+  async getSearch(title: string, year: number): Promise<MkvdramaSearch | null> {
+    const url = `${this.baseUrl}/search?q=${title}`;
+    this.logger.log(`GET search | ${url}`);
+    const data = await axiosGet<string>(url);
+    if (!data) return null;
+
+    const searches = this.parseSearch(data);
+    const match = matchTitle(searches, title, year);
+    if (!match[0]) return null;
+    const matchDetail = match[0];
+    return matchDetail;
+  }
+
+  async getSubtitles(content: ContentDetail): Promise<Subtitle[]> {
+    return [];
+  }
+
+  async getItems(url: string): Promise<MkvdramaSeries[]> {
+    try {
+      this.logger.log(`GET items | ${url}`);
+      const data = await this._fetchDirectAndFlareSolverr(url);
+      if (!data) return [];
+      let content = "";
+      if (typeof data == "string") content = data;
+      else {
+        content = data.solution?.response || content;
+      }
+      const $ = cheerio.load(content);
+      const articles = $("article.bs").toArray();
+      const results: MkvdramaSeries[] = articles
+        .map((el) => {
+          const $el = $(el);
+          const a = $el.find("a.tip");
+          const img = $el.find("img");
+          const rawTitle = a.attr("title") || "";
+          const link = a.attr("href") || "";
+          const id = link.replace(/^\//, "").replace(/\/$/, "");
+          const poster = img.attr("src") || img.attr("data-src") || "";
+          const country = $el.find(".country").text().trim();
+          const typeText = $el.find(".typez").text().trim();
+          return {
+            id,
+            title: rawTitle,
+            url: link,
+            poster,
+            type: (typeText.toLowerCase().includes("movie")
+              ? "movie"
+              : "series") as ContentType,
+            country,
+          };
+        })
+        .filter((item) => item.title && item.url);
+      return results;
+    } catch (error) {
+      this.logger.error(`getItems failed: ${error}`);
+      return [];
+    }
+  }
+
+  parseSearch(html: string): MkvdramaSearch[] {
+    const $ = cheerio.load(html);
+    const series: MkvdramaSearch[] = [];
+    $("article.bs").each((_, el) => {
+      const href = $(el).find('a[itemprop="url"]').attr("href");
+      const title = $(el).find("b").text().trim();
+      if (href && title) {
+        const mkvdramaId = href.replace(/^\//, "").replace(/\/$/, "");
+        const url = new URL(href, this.baseUrl).toString();
+        series.push({ title, url, mkvdramaId });
+      }
+    });
+    return series;
+  }
+
+  async getDetailAndEpisodes(id: string): Promise<{
+    detail: MetaDetail;
+    episodes: MetaVideo[];
+    links: { link: string; quality: string }[];
+    response: FlareSolverrResponse;
+  } | null> {
+    try {
+      const url = `${this.baseUrl}/${id}`;
+      this.logger.log(`GET detail | ${url}`);
+      const response = await getFlareSolverr(url, this.name, 4);
+      const content = response?.solution?.response || "";
+      if (!response || content.includes("Preparing...")) {
+        this.logger.error(`Not found detail from id | ${id}`);
+        return null;
+      }
+      const $ = cheerio.load(content);
+      const rawTitle = $("title").text();
+      const title =
+        $("h1").text().trim() || rawTitle.slice(0, rawTitle.indexOf("at"));
+      const description = $(".entry-content p").first().text().trim();
+      const thumbnail = $('meta[property="og:image"]').attr("content") || "";
+      const time = $("time").text();
+      const detail: MetaDetail = {
+        id: `${this.name}:${id}`,
+        name: title,
+        type: "series",
+        description: description,
+        poster: thumbnail,
+        released: new Date(time).toISOString(),
+      };
+      const qualityBlocks = $("div.soraddlx").toArray();
+      const ouoRedirectLinks: { link: string; quality: string }[] = [];
+      let minEpisode = 0;
+      let maxEpisode = 0;
+      for (const qualityBlock of qualityBlocks) {
+        const $qualityBlock = $(qualityBlock);
+        const h3Text: string = $qualityBlock.find("h3").text() || "";
+        const titleMatch = h3Text.match(/Episode\s+(\d+)\s*-\s*(\d+)/i);
+        if (titleMatch) {
+          minEpisode = parseInt(titleMatch[1]!, 10);
+          maxEpisode = parseInt(titleMatch[2]!, 10);
+        }
+        const linkBlocks = $qualityBlock.find("div.soraurlx").toArray();
+        if (linkBlocks.length === 0) continue;
+        linkBlocks.forEach((linkBlock) => {
+          const $link = $(linkBlock);
+          const links = $link.find("a").toArray();
+          const $quality = $link.find("strong");
+          links.forEach((link) => {
+            const $link = $(link);
+            const ouoRedirectLink: string = $link.attr("href") || "";
+            const quality: string = $quality.text();
+            if ($link.text().trim().includes("Link 1") && quality) {
+              this.logger.log(
+                `ouoRedirectLink ${ouoRedirectLink}, quality ${quality}`,
+              );
+              ouoRedirectLinks.push({ link: ouoRedirectLink, quality });
+            }
+          });
+        });
+      }
+      const season = 1;
+      const episodes: MetaVideo[] = [];
+      const highQualities = ["1080p", "1080pHD"];
+      for (let ep = minEpisode + 1; ep <= maxEpisode; ep++) {
+        const ouoLink = ouoRedirectLinks.find((link) =>
+          highQualities.includes(link.quality),
+        )?.link;
+        if (!ouoLink) continue;
+        const title = ouoRedirectLinks.find((link) =>
+          highQualities.includes(link.quality),
+        )?.quality;
+        if (!title) continue;
+        const episode: MetaVideo = {
+          id: `${this.name}:${ouoLink}:${season}:${ep}`,
+          title: `${detail.name} ${highQualities}`,
+          episode: ep,
+          season: season,
+          overview: `${highQualities} Download`,
+          released: new Date(time).toISOString(),
+        };
+        episodes.push(episode);
+      }
+      return { detail, episodes, links: ouoRedirectLinks, response: response };
+    } catch (error) {
+      handleError(error, this.logger, `getDetailAndEpisodes failed`);
+      return null;
+    }
+  }
+
+  async runMkvdramaStream(job: EJob) {
+    const jobData: JobMkvdrama = JSON.parse(job.data);
+    const mkvdramaId = jobData.mkvdramaId;
+    const content = jobData.content;
+    const data = await this.getDetailAndEpisodes(mkvdramaId);
+    if (!data || !(data.links.length > 0)) {
+      throw new MkvdramaError("No data found");
+    }
+    const detail = data.detail;
+
+    // resolve all links
+    const bestLinks = data.links.filter((link) =>
+      BEST_QUALITIES.includes(link.quality),
+    );
+    const links = await Promise.all(
+      bestLinks.map(async (link) => {
+        const redirectUrl = `${this.baseUrl}${link.link}`;
+        const ouoLink = await getRedirectedUrlCDP(
+          redirectUrl,
+          data.response?.solution?.cookies,
+          data.response?.solution?.userAgent,
+        );
+        this.logger.log(`getRedirectedUrl ${redirectUrl}`);
+        return { link: ouoLink, quality: link.quality };
+      }),
+    );
+    const ouos: (EOuo & { quality: QUALITY })[] = [];
+    // flaresolverr not work concurrently
+    for (const link of links) {
+      if (link.link) {
+        const finalUrl = await getOuoFinalUrl(link.link);
+        const id = getOuoId(link.link);
+        if (id && finalUrl) {
+          const ouo: EOuo & { quality: QUALITY } = {
+            id: id,
+            originalUrl: link.link,
+            redirectedUrl: finalUrl,
+            createdAt: Date.now(),
+            quality: link.quality as QUALITY,
+          };
+          ouos.push(ouo);
+        }
+      }
+    }
+    // const ouos = (
+    //   await Promise.all(
+    //     links.map(async (link) => {
+    //       if (link.link) {
+    //         const finalUrl = await getOuoFinalUrl(link.link);
+    //         const id = getOuoId(link.link);
+    //         if (id && finalUrl) {
+    //           const ouo: EOuo & { quality: string } = {
+    //             id: id,
+    //             originalUrl: link.link,
+    //             redirectedUrl: finalUrl,
+    //             createdAt: Date.now(),
+    //             quality: link.quality,
+    //           };
+    //           return ouo;
+    //         }
+    //       }
+    //       return null;
+    //     }),
+    //   )
+    // ).filter((ouoLink) => ouoLink != null);
+    if (ouos.length === 0) throw new OuoError("No ouo links found");
+    upsertOuos(ouos);
+
+    const tmdbDetail = await tmdb.searchDetail(content.title, content.type);
+    const providerContentId = `${Prefix.MKVDRAMA}:${mkvdramaId}`;
+    if (tmdbDetail) {
+      const oldContent = await getContentByTmdb(tmdbDetail.id, content.type);
+      if (oldContent) {
+        const contentId = oldContent.id;
+        upsertContent(contentId, tmdbDetail, TTL_MS.content);
+        const providerContent = await getProviderContentById(providerContentId);
+        if (providerContent) {
+          await upsertProviderContent({
+            ...providerContent,
+            contentId: contentId,
+          });
+        } else {
+          await upsertProviderContent({
+            id: providerContentId,
+            contentId: contentId,
+            title: extractTitle(detail.name).title,
+            ttl: null,
+            provider: this.name,
+            externalId: mkvdramaId.toString(),
+            image: detail.poster,
+            year: content.year,
+            type: content.type,
+          });
+        }
+      }
+    }
+
+    upsertMkvdramas(
+      ouos.map((ouo) => {
+        return {
+          id: uuidv7(),
+          providerContentId: providerContentId,
+          ouoId: ouo.id,
+          resolution: ouo.quality,
+          createdAt: Date.now(),
+          updatedAt: null,
+          ttl: TTL_MS.stream,
+        };
+      }),
+    );
+
+    const streamRows = await Promise.all(
+      ouos.map(async (ouo) => {
+        const viewcrateUrl = ouo.redirectedUrl;
+        if (!viewcrateUrl) return;
+        const urls = await getUrlsFromViewcrate(viewcrateUrl);
+        const pixeldrainUrls = filterPixeldrainUrls(urls);
+        this.logger.log(`pixeldrainUrls ${JSON.stringify(pixeldrainUrls)}`);
+        const streamRows = pixeldrainUrls.map((pixeldrainUrl, index) => {
+          if (!pixeldrainUrl) return;
+          const streamUrl = getPixeldrainDownloadUrl(pixeldrainUrl);
+          const streamResolution = getResolutionFromQuality(ouo.quality);
+          const resolution = `${streamResolution.width}x${streamResolution.height}`;
+          const streamRow: Omit<EStreamInsert, "createdAt"> = {
+            id: uuidv7(),
+            providerContentId: providerContentId,
+            provider: this.name,
+            externalId: mkvdramaId,
+            resolution: resolution,
+            season: content.season?.toString() ?? "1",
+            episode: (index + 1).toString(),
+            url: streamUrl,
+            ttl: TTL_MS.stream,
+          };
+          return streamRow;
+        });
+        return streamRows;
+      }),
+    );
+    upsertStream(streamRows.flat().filter((streamRow) => streamRow != null));
+    return;
+  }
+
+  async getRedirectedUrls(
+    urls: string[],
+    cookies?: CookieData[],
+    userAgent?: string,
+  ): Promise<string[] | null> {
+    let ouoLink: string | null = "";
+    try {
+      const redirectedUrls = await Promise.all(
+        urls.map(async (url) => {
+          ouoLink = await getRedirectedUrlCDP(url, cookies, userAgent);
+          this.logger.log(`getRedirectedUrl ${url} from puppeteer`);
+          return ouoLink;
+        }),
+      );
+      return redirectedUrls.filter((ouoLink) => ouoLink != null);
+    } catch (error) {
+      handleError(error, this.logger, `Fail getRedirectedUrls`);
+      return null;
+    }
+  }
+  /** First get from flaresolverr ~2s, if fail then browser CDP ~4s */
+  async getRedirectedUrl(
+    url: string,
+    cookies?: CookieData[],
+    userAgent?: string,
+  ): Promise<string | null> {
+    let ouoLink: string | null = "";
+    try {
+      const response = await getFlareSolverr(url, this.name, 1);
+      console.log(`link ${JSON.stringify(response?.solution?.url)}`);
+      ouoLink = response?.solution?.url || null;
+      if (ouoLink) {
+        if (OUO_HOSTS.some((host) => ouoLink?.includes(host))) {
+          this.logger.log(`getRedirectedUrl ${url} from flaresolverr`);
+          return ouoLink;
+        }
+      }
+      ouoLink = await getRedirectedUrlCDP(url, cookies, userAgent);
+      this.logger.log(`getRedirectedUrl ${url} from puppeteer`);
+      return ouoLink;
+    } catch (error) {
+      handleError(error, this.logger, `Fail getRedirectedUrl ${url}`);
+      return null;
+    }
+  }
+
+  async _fetchDirectAndFlareSolverr(
+    url: string,
+  ): Promise<string | FlareSolverrResponse | null> {
+    const response = await this._fetchDirect(url);
+    if (response) return response;
+    return getFlareSolverr(url, this.name);
+  }
+
+  async _fetchDirect(url: string): Promise<string | null> {
+    try {
+      const response = await axiosGet<string>(url, { headers: this.headers });
+      this.logger.log(`Direct request: ${response}`);
+      if (
+        response &&
+        !response.includes("cloudflare") &&
+        !response.includes("Checking your browser")
+      ) {
+        return response;
+      }
+    } catch (error) {
+      this.logger.warn(`Axios request failed: ${error}`);
+    }
+    return null;
+  }
+}

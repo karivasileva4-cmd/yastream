@@ -12,6 +12,7 @@ import {
   getUserAgent,
   RouteConfig,
 } from "./stremio.js";
+import { REDIRECT, redirectApiHandler } from "../controller/redirect-api.js";
 
 interface ApiRouteConfig extends RouteConfig {
   handler: (c: Context) => Promise<Response>;
@@ -37,7 +38,7 @@ const getLimiter = (
       const ip = getIp(c);
       const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
       const wait = getRetryAfterText(parseInt(remaining));
-      logger.error(
+      logger.warn(
         `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
       );
       umami?.send(
@@ -73,6 +74,11 @@ const apiRouteConfigs: ApiRouteConfig[] = [
     route: `/${SUBTITLES}/:id`,
     limiter: getLimiter(SUBTITLES),
     handler: subtitleApiHandler,
+  },
+  {
+    route: `/${REDIRECT}/:args{.*}`,
+    limiter: getLimiter(REDIRECT),
+    handler: redirectApiHandler,
   },
 ];
 apiRouteConfigs.forEach((config) => {

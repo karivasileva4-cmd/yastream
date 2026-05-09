@@ -52,7 +52,7 @@ class GlobalCache {
     const expiresAt = Date.now() + ttlMs;
 
     // 4. Set the new item
-    logger.debug(`Set ${ttlMs}ms | ${key}`);
+    logger.trace(`Set ${ttlMs}ms | ${key}`);
     this.cache.set(key, { value, size: newSize, expiresAt });
     this.currentByteSize += newSize;
   }
@@ -60,7 +60,7 @@ class GlobalCache {
   get(key: string): any | null {
     const entry = this.cache.get(key);
     if (!entry) {
-      logger.debug(`Miss | ${key}`);
+      logger.trace(`Miss | ${key}`);
       const kvCache = getKv(key);
       if (kvCache && Date.now() < kvCache.expiresAt) {
         return JSON.parse(kvCache.value);

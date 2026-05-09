@@ -72,7 +72,9 @@ export function cleanUrl(url: string) {
   if (REQUIRED_QUERY_URLS.some((queryUrl) => url.includes(queryUrl))) {
     return url;
   }
-  return url.replace(/\?.*$/, "");
+  url = url.replace(/[\x00-\x1F\x7F]/g, "").trim();
+  url = url.replace(/\?.*$/, "");
+  return url;
 }
 
 export function parseOrigin(url: string) {

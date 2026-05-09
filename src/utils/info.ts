@@ -29,6 +29,7 @@ interface ProbeInfo {
     bit_rate: number;
   };
 }
+export type QUALITY = "2160p" | "1080pHD" | "1080p" | "720p" | "480p";
 
 export async function probeStreamInfo(
   url: string,
@@ -189,6 +190,23 @@ export function getDisplayResolution(resolution: Resolution) {
   if (width >= 1280 || height >= 534) return "720p";
   if (width >= 854 || height >= 480) return "480p";
   return "SD";
+}
+
+// 1080p -> 1980x1080, 720p -> 1280x720, 480p -> 854x480
+export function getResolutionFromQuality(quality: QUALITY): Resolution {
+  switch (quality) {
+    case "2160p":
+      return { width: 3840, height: 2160 };
+    case "1080pHD":
+    case "1080p":
+      return { width: 1980, height: 1080 };
+    case "720p":
+      return { width: 1280, height: 720 };
+    case "480p":
+      return { width: 854, height: 480 };
+    default:
+      return { width: 854, height: 480 };
+  }
 }
 
 export function parseInfo(stream: EStream) {

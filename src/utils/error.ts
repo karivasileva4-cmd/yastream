@@ -2,80 +2,129 @@ import { Logger } from "./logger.js";
 
 export class RateLimitError extends Error {
   constructor(message: string) {
-    super(`${ErrorName.RATE_LIMIT} | ${message}`);
-    this.name = ErrorName.RATE_LIMIT;
+    const name = ErrorName.RATE_LIMIT;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 
 export class TmdbError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.TMDB;
+    const name = ErrorName.TMDB;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class TvdbError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.TVDB;
+    const name = ErrorName.TVDB;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class FuseError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.FUSE;
+    const name = ErrorName.FUSE;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 
 export class MatchingError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.MATCHING;
+    const name = ErrorName.MATCHING;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class ProbeInfoError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.PROBE_INFO;
+    const name = ErrorName.PROBE_INFO;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+// FLARESOLVERR
+export class FlareSolverrError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.FLARESOLVERR;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+// DEBRID
+export class TorboxError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.TORBOX;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 
+// OUO
+export class OuoError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.OUO;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+
+// KISSKH
+
 export class KisskhDetailError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.KISSKH_DETAIL;
+    const name = ErrorName.KISSKH_DETAIL;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class KisskhEpisodeError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.KISSKH_EPISODE;
+    const name = ErrorName.KISSKH_EPISODE;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class KisskhTokenError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.KISSKH_TOKEN;
+    const name = ErrorName.KISSKH_TOKEN;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 // Onetouch
 export class OnetouchSearchError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.ONETOUCHTV_SEARCH;
+    const name = ErrorName.ONETOUCHTV_SEARCH;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class OnetouchDetailError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.ONETOUCHTV_DETAIL;
+    const name = ErrorName.ONETOUCHTV_DETAIL;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
 export class OnetouchEpisodeError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = ErrorName.ONETOUCHTV_EPISODE;
+    const name = ErrorName.ONETOUCHTV_EPISODE;
+    super(`${name} | ${message}`);
+    this.name = name;
   }
 }
+
+// MKVDRAMA
+export class MkvdramaError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.MKVDRAMA;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+
 enum ErrorName {
   ERROR = "Error",
   RATE_LIMIT = "Rate Limit",
@@ -91,6 +140,12 @@ enum ErrorName {
   // Meta
   TMDB = "TMDB Error",
   TVDB = "TVDB Error",
+  // FlareSolverr
+  FLARESOLVERR = "[FlareSolverr] Error",
+  // TORBOX
+  TORBOX = "[Torbox] Error",
+  // OUO
+  OUO = "[Ouo] Error",
   // KISSKH
   KISSKH_DETAIL = "[Kisskh] Detail Error",
   KISSKH_EPISODE = "[Kisskh] Episode Error",
@@ -99,6 +154,8 @@ enum ErrorName {
   ONETOUCHTV_SEARCH = "[Onetouchtv] Search Error",
   ONETOUCHTV_DETAIL = "[Onetouchtv] Detail Error",
   ONETOUCHTV_EPISODE = "[Onetouchtv] Episode Error",
+  // MKVDRAMA
+  MKVDRAMA = "[Mkvdrama] Error",
 }
 
 export function handleError(
@@ -140,11 +197,11 @@ export function handleError(
         return error;
       }
       error.name = ErrorName.ERROR;
-      logger.error(`${message} | ${error.message}`);
+      logger.error(`${message} | ${JSON.stringify(error.message)}`);
       return error;
     default:
       error.name = ErrorName.UNKNOWN;
-      logger.error(`${message} | ${error}`);
+      logger.error(`${message} | ${JSON.stringify(error)}`);
       return error;
   }
 }

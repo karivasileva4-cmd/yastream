@@ -57,6 +57,13 @@
       "when": 1777072085781,
       "tag": "0007_light_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1778276284121,
+      "tag": "0008_special_excalibur",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   ManifestCatalog,
   ManifestExtra,
 } from "@stremio-addon/sdk";
+// @ts-ignore - JSON import for package.json
 import pkg from "../../package.json" with { type: "json" };
 import { Provider } from "../source/provider.js";
 import { getOrigin } from "../utils/domain.js";
@@ -17,6 +18,7 @@ export interface UserConfig {
   nsfw: boolean;
   info: boolean;
   poster: "rpdb" | "erdb" | "xrdb";
+  torboxApiKey: string;
 }
 
 export enum Prefix {
@@ -26,6 +28,7 @@ export enum Prefix {
   IDRAMA = "idrama",
   KISSKH = "kisskh",
   ONETOUCHTV = "onetouchtv",
+  MKVDRAMA = "mkvdrama",
 }
 
 export const defaultCatalogs = [
@@ -47,6 +50,7 @@ export const defaultConfig: UserConfig = {
   nsfw: false,
   info: false,
   poster: "rpdb",
+  torboxApiKey: "",
 };
 
 function buildCatalogMap(catalogs: string[] = defaultCatalogs) {

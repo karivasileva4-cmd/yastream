@@ -104,6 +104,7 @@ class ProviderService {
     if (contentId.tvdbId) dbContent.tvdbId = contentId.tvdbId;
     if (contentId.kisskhId) dbContent.kisskhId = contentId.kisskhId;
     if (contentId.onetouchtvId) dbContent.onetouchtvId = contentId.onetouchtvId;
+    if (contentId.mkvdramaId) dbContent.mkvdramaId = contentId.mkvdramaId;
     dbProviderContent.forEach((providerContent) => {
       switch (providerContent.provider) {
         case Provider.KISSKH:
@@ -111,6 +112,9 @@ class ProviderService {
           break;
         case Provider.ONETOUCHTV:
           dbContent.onetouchtvId = providerContent.externalId;
+          break;
+        case Provider.MKVDRAMA:
+          dbContent.mkvdramaId = providerContent.externalId;
           break;
         default:
           break;

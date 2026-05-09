@@ -16,29 +16,37 @@ import {
   upsertProviderContent,
 } from "../db/queries.js";
 import { EProviderContent } from "../db/schema/provider_content.js";
+import ProviderService from "../service/provider/provider-service.js";
 import { IDramaScraper } from "../source/idrama.js";
 import KissKHScraper from "../source/kisskh.js";
 import { KkphimScraper } from "../source/kkphim.js";
 import { ContentDetail } from "../source/meta.js";
+import MkvdramaScraper from "../source/mkvdrama.js";
 import { OnetouchtvScrapper } from "../source/onetouchtv.js";
 import { OphimScraper } from "../source/ophim.js";
 import { BaseProvider, Provider } from "../source/provider.js";
 import { tmdb } from "../source/tmdb.js";
 import { tvdb } from "../source/tvdb.js";
-import { cache, TTL_MS } from "../utils/cache.js";
+import { cache, TTL_MS, TTL_SECS } from "../utils/cache.js";
 import { RATE_LIMIT_DESCRIPTION } from "../utils/constant.js";
 import { extractTitle } from "../utils/format.js";
 import { Logger } from "../utils/logger.js";
 import { defaultConfig, Prefix, UserConfig } from "./manifest.js";
-import ProviderService from "../service/provider/provider-service.js";
-import { getOrigin } from "../utils/domain.js";
 
 const kisskh = new KissKHScraper(Provider.KISSKH);
 const idrama = new IDramaScraper(Provider.IDRAMA);
 const kkphim = new KkphimScraper(Provider.KKPHIM);
 const ophim = new OphimScraper(Provider.OPHIM);
 const onetouchtv = new OnetouchtvScrapper(Provider.ONETOUCHTV);
-const providers: BaseProvider[] = [kisskh, onetouchtv, idrama, kkphim, ophim];
+const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);
+const providers: BaseProvider[] = [
+  kisskh,
+  onetouchtv,
+  idrama,
+  kkphim,
+  ophim,
+  mkvdrama,
+];
 const providersMap = new Map<Provider, BaseProvider>();
 providers.forEach((provider) => {
   providersMap.set(provider.name, provider);
@@ -495,8 +503,8 @@ export async function buildSubtitleHandler(
       subtitles: subsResults.flat(),
     };
     if (subsResults.length > 0) {
-      subtitleResults.cacheMaxAge = 1 * 60 * 60;
-      cache.set(subtitleKey, subtitleResults, 4 * 60 * 60 * 1000);
+      subtitleResults.cacheMaxAge = TTL_SECS.stream;
+      cache.set(subtitleKey, subtitleResults, TTL_MS.stream);
     }
     return subtitleResults;
   } catch (error) {

@@ -1,6 +1,7 @@
 # v0.7.3 2026-05-05
 
 - Get best link from onetouchtv for stream if there are multiple links
+- Use imdb id for poster if available
 - Show rate limit on stream list if got rate limit from provider
 - Switch from title (deprecated) to description for stream
 - TMDB: Use append response for less requests

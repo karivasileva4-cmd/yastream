@@ -2,9 +2,6 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { ENV } from "../utils/env.js";
-import { Logger } from "../utils/logger.js";
-
-const logger = new Logger("DB");
 
 class DatabaseManager {
   private db: Database.Database;

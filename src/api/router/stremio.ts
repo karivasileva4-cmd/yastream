@@ -77,7 +77,7 @@ const getLimiter = (
         const ip = getIp(c);
         const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
         const description = getDescription(parseInt(remaining));
-        logger.error(
+        logger.warn(
           `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
         );
         if (ENV.NTFY_URL) {

@@ -22,6 +22,7 @@ export interface ContentId {
   kisskhId?: string;
   onetouchtvId?: string;
   idramaId?: string;
+  mkvdramaId?: string;
 }
 
 export abstract class BaseMeta {

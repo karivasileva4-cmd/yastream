@@ -8,7 +8,6 @@ import {
 } from "@stremio-addon/sdk";
 import { Prefix, UserConfig } from "../lib/manifest.js";
 import { ENV } from "../utils/env.js";
-import { getDisplayResolution, StreamInfo } from "../utils/info.js";
 import { Logger } from "../utils/logger.js";
 import { ContentDetail } from "./meta.js";
 
@@ -18,6 +17,7 @@ export enum Provider {
   KKPHIM = "kkphim",
   OPHIM = "ophim",
   ONETOUCHTV = "onetouchtv",
+  MKVDRAMA = "mkvdrama",
   TMDB = "tmdb",
   TVDB = "tvdb",
 }
@@ -34,7 +34,7 @@ export abstract class BaseProvider {
     "Upgrade-Insecure-Requests": "1",
   };
   protected logger: Logger;
-  protected displayName: string;
+  readonly displayName: string;
   name: Provider;
   abstract supportedPrefix: Prefix[];
   nsfwDefaultThumbnail =

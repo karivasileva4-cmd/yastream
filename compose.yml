@@ -1,0 +1,23 @@
+services:
+  browserless:
+    image: browserless/chrome:latest
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - MAX_CONCURRENT_SESSIONS=5 # Limits how many browsers can run at once
+      - MAX_QUEUE_CAPACITY=10 # Queue up requests if over capacity
+      - PREBOOT_CHROME=true # Keeps one browser "warm" for speed
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FILE=${LOG_FILE:-none}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=Europe/Berlin
+    ports:
+      - "8191:8191"
+    restart: unless-stopped
