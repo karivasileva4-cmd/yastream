@@ -1,0 +1,1 @@
+ALTER TABLE `mkvdrama` RENAME COLUMN "resolution" TO "quality";

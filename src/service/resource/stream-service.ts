@@ -8,7 +8,7 @@ import { UserConfig } from "../../lib/manifest.js";
 import { ONETOUCHTV_HOST } from "../../source/onetouchtv.js";
 import { API, STREAMS } from "../../utils/constant.js";
 import { getOrigin } from "../../utils/domain.js";
-import { formatStreamTitle } from "../../utils/format.js";
+import { extractSeason, formatStreamTitle } from "../../utils/format.js";
 import { parseInfo, probeStreamInfo, StreamInfo } from "../../utils/info.js";
 
 class StreamService {
@@ -47,6 +47,7 @@ class StreamService {
             const probeInfo = await probeStreamInfo(url);
             info = probeInfo || info;
           }
+          season = extractSeason(stream.provider_content.title).season ?? 1;
           const formatTitle = formatStreamTitle(
             stream.provider_content.title,
             stream.provider_content.year,

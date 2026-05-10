@@ -152,7 +152,7 @@ export async function upsertProviderContent(
           ttl: row.ttl,
         },
       });
-    logger.debug(`Upserted provider_content ${row.title}`);
+    logger.debug(`Upserted provider_content ${row.id} ${row.title}`);
   } catch (e: any) {
     handleError(e, logger, `Failed to upsert provider_content ${row.title}`);
   }
@@ -212,6 +212,19 @@ export async function upsertStream(stream: Omit<EStreamInsert, "createdAt">[]) {
           size: sql.raw(`excluded.${streams.size.name}`),
           duration: sql.raw(`excluded.${streams.duration.name}`),
           ttl: sql.raw(`excluded.${streams.ttl.name}`),
+        },
+      })
+      .onConflictDoUpdate({
+        target: streams.url,
+        set: {
+          season: sql.raw(`excluded.${streams.season.name}`),
+          createdAt: sql.raw(`excluded.${streams.createdAt.name}`),
+          ttl: sql.raw(`excluded.${streams.ttl.name}`),
+          playlist: sql.raw(`excluded.${streams.playlist.name}`),
+          hash: sql.raw(`excluded.${streams.hash.name}`),
+          resolution: sql.raw(`excluded.${streams.resolution.name}`),
+          size: sql.raw(`excluded.${streams.size.name}`),
+          duration: sql.raw(`excluded.${streams.duration.name}`),
         },
       });
     const row = rows[0];

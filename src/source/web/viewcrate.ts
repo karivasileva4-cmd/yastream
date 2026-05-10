@@ -1,11 +1,13 @@
 import * as crypto from "crypto";
 import { axiosPost } from "../../utils/axios.js";
+import { ViewcrateError } from "../../utils/error.js";
 
 interface ViewcrateCnl {
   crypted: string;
   jk: string;
 }
-export const VIEWCRATE_ORIGIN = "https://viewcrate.cc";
+export const VIEWCRATE_HOST = "viewcrate.cc";
+export const VIEWCRATE_ORIGIN = `https://${VIEWCRATE_HOST}`;
 
 export async function getUrlsFromViewcrate(url: string) {
   const publicId = new URL(url).pathname.split("/").pop();
@@ -15,7 +17,7 @@ export async function getUrlsFromViewcrate(url: string) {
   // if (!cnlHtml?.solution?.response) return [];
   // const urls = getUrlsFromCnlHtml(cnlHtml.solution?.response);
   const cnlHtml = await axiosPost<ViewcrateCnl>(viewcrateCryptUrl);
-  if (!cnlHtml) return [];
+  if (!cnlHtml) throw new ViewcrateError("No cnl html");
   const urls = getUrlsFromCnl(cnlHtml);
   return urls;
 }

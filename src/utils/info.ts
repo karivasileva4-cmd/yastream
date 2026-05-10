@@ -182,7 +182,7 @@ function getProbeInfo(url: string): ProbeInfo | null {
   }
 }
 
-export function getDisplayResolution(resolution: Resolution) {
+export function toQuality(resolution: Resolution) {
   const width = resolution.width;
   const height = resolution.height;
   if (width >= 3840 || height >= 2160) return "4K";
@@ -193,7 +193,7 @@ export function getDisplayResolution(resolution: Resolution) {
 }
 
 // 1080p -> 1980x1080, 720p -> 1280x720, 480p -> 854x480
-export function getResolutionFromQuality(quality: QUALITY): Resolution {
+export function toResolution(quality: QUALITY): Resolution {
   switch (quality) {
     case "2160p":
       return { width: 3840, height: 2160 };

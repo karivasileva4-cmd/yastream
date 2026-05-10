@@ -11,6 +11,7 @@ import { buildManifest } from "./lib/manifest.js";
 import { API } from "./utils/constant.js";
 import { ENV } from "./utils/env.js";
 import { Logger } from "./utils/logger.js";
+import { startCronJob } from "./service/job/job.js";
 
 const logger = new Logger("SERVER");
 const HOST = "0.0.0.0";
@@ -45,6 +46,7 @@ app.onError((err, c) => {
 
 // Start server
 initMigrations();
+startCronJob();
 try {
   serve({ fetch: app.fetch, port: PORT, hostname: HOST }, () => {
     logger.log(`yastream running on http://${HOST}:${PORT}`);

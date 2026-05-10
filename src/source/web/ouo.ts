@@ -5,11 +5,19 @@ import {
   sendFlareSolverr,
 } from "../../utils/browser/flaresolverr.js";
 import { Logger } from "../../utils/logger.js";
+import { getOuo } from "../../db/query/ouo.js";
+import { OuoError } from "../../utils/error.js";
 export const OUO_HOSTS = ["ouo.io", "ouo.press"];
 
 const logger = new Logger("OUO");
 
 export async function getOuoFinalUrl(url: string, session: string = "ouo") {
+  const id = getOuoId(url);
+  if (!id) throw new OuoError("No id found");
+  const dbOuo = await getOuo(id);
+  if (dbOuo) {
+    return dbOuo.redirectedUrl;
+  }
   logger.log(`Get final url with flaresolverr | ${url}`);
   let currentUrl = url;
   let cmd: CMD = "request.get";
@@ -31,7 +39,7 @@ export async function getOuoFinalUrl(url: string, session: string = "ouo") {
     const content = data?.solution?.response;
     finalUrl = data?.solution?.url;
     // parse content
-    if (!content) throw new Error("No content");
+    if (!content) throw new OuoError("No content");
     if (!OUO_HOSTS.some((host) => finalUrl?.includes(host))) {
       break;
     }
@@ -44,29 +52,31 @@ export async function getOuoFinalUrl(url: string, session: string = "ouo") {
       xToken: $('input[name="x-token"]').val(),
       vToken: $('input[name="v-token"]').val(),
     };
-    logger.debug(`parseData ${JSON.stringify(parseData)}`);
+    logger.trace(`parseData ${JSON.stringify(parseData)}`);
     if (!parseData.action) {
       parseData.action = $("#form-go").attr("action");
       parseData.method = $("#form-go").attr("method");
-      logger.debug(`parseData go ${JSON.stringify(parseData)}`);
+      logger.trace(`parseData go ${JSON.stringify(parseData)}`);
     }
     if (!parseData.action) {
       parseData.action = $("#form-shorten").attr("action");
       parseData.method = $("#form-shorten").attr("method");
-      logger.debug(`parseData shorten ${JSON.stringify(parseData)}`);
+      logger.trace(`parseData shorten ${JSON.stringify(parseData)}`);
     }
-    if (!parseData.action) throw new Error("No redirect url or form action");
+    if (!parseData.action) throw new OuoError("No redirect url or form action");
     currentUrl = parseData.action;
     cmd =
       parseData.method?.toUpperCase() === "POST"
         ? "request.post"
         : "request.get";
-    // application/x-www-form-urlencoded
-    // const jsonPostData = JSON.stringify(parseData);
     postData = `_token=${parseData.token}&cf-turnstile-response=${parseData.cfTurnstileResponse}&x-token=${parseData.xToken}&v-token=${parseData.vToken}`;
   }
   logger.log(`Final Url ${finalUrl}`);
   return finalUrl;
+}
+
+export async function getDbOuo(id: string) {
+  return getOuo(id);
 }
 
 // TODO: fix concurrent with browser instead of flaresolverr

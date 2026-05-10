@@ -5,6 +5,14 @@ import { db } from "../drizzle.js";
 import { EJobInsert, job, JOB_STATUS } from "../schema/job.js";
 
 const logger = new Logger("DB");
+export async function insertJobs(jobs: EJobInsert[]) {
+  if (!db) return;
+  try {
+    await db.insert(job).values(jobs).run();
+  } catch (e) {
+    handleError(e, logger, `Failed to insert job ${jobs[0]?.id}`);
+  }
+}
 export async function upsertJobs(jobs: EJobInsert[]) {
   if (!db) return;
   try {
@@ -24,27 +32,35 @@ export async function upsertJobs(jobs: EJobInsert[]) {
   }
 }
 
-export function getJob() {
+export function getFirstJob() {
   if (!db) return;
   const row = db.query.job.findFirst({
-    where: or(
-      eq(job.status, JOB_STATUS.PENDING),
-      eq(job.status, JOB_STATUS.RUNNING),
-      eq(job.status, JOB_STATUS.FAILED),
-    ),
+    where: eq(job.status, JOB_STATUS.PENDING),
     orderBy: asc(job.createdAt),
   });
   return row;
 }
 
-export async function countjob() {
+export async function countJob() {
   if (!db) return;
-  const number = await db.select({ count: count(job.id) }).from(job);
+  const number = await db
+    .select({ count: count(job.id) })
+    .from(job)
+    .where(eq(job.status, JOB_STATUS.PENDING));
+  // .run();
   return number;
 }
 
 export async function deleteJob(id: string) {
   if (!db) return;
   const row = db.delete(job).where(eq(job.id, id));
+  return row;
+}
+
+export async function getJobById(id: string) {
+  if (!db) return;
+  const row = db.query.job.findFirst({
+    where: eq(job.id, id),
+  });
   return row;
 }

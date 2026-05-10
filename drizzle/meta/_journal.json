@@ -64,6 +64,20 @@
       "when": 1778276284121,
       "tag": "0008_special_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1778322248570,
+      "tag": "0009_right_secret_warriors",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1778361656456,
+      "tag": "0010_powerful_wiccan",
+      "breakpoints": true
     }
   ]
 }

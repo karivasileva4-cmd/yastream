@@ -1,3 +1,10 @@
+# v0.8.0 2026-05-10
+
+- Add mkvdrama, only support ouo -> viewcrate -> pixeldrain flow
+- Add job queue for long task like mkvdrama
+- Add some testing for request flow
+- Fix season to get right stream
+
 # v0.7.3 2026-05-05
 
 - Get best link from onetouchtv for stream if there are multiple links

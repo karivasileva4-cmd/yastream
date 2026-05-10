@@ -1,9 +1,15 @@
 import { CronJob } from "cron";
-import { deleteJob, getJob, upsertJobs } from "../../db/query/job.js";
+import {
+  countJob,
+  deleteJob,
+  getFirstJob,
+  getJobById,
+  insertJobs,
+  upsertJobs,
+} from "../../db/query/job.js";
 import { EJob, EJobInsert, JOB_STATUS, JOB_TYPE } from "../../db/schema/job.js";
 import { ContentDetail } from "../../source/meta.js";
-import MkvdramaScraper from "../../source/mkvdrama.js";
-import { Provider } from "../../source/provider.js";
+import { mkvdrama } from "../../source/mkvdrama.js";
 import { ENV } from "../../utils/env.js";
 import { handleError } from "../../utils/error.js";
 import { Logger } from "../../utils/logger.js";
@@ -15,6 +21,10 @@ export interface JobMkvdrama {
 
 const logger = new Logger("JOB");
 
+export function addJob(job: EJobInsert) {
+  insertJobs([job]);
+}
+
 export function upsertJob(job: EJobInsert) {
   upsertJobs([job]);
 }
@@ -25,33 +35,31 @@ export function startCronJob() {
   logger.log(`Starting cron job ${CRON}`);
   const cronJob = new CronJob(
     CRON,
-    function () {
-      runCronJob();
-    },
+    () => runCronJob(),
     null, // onComplete
     false,
     "Europe/Berlin",
   );
   cronJob.start();
 }
+
 const jobMap = new Map<string, EJob>();
 
 async function runCronJob() {
-  const job = await getJob();
+  const job = await getFirstJob();
   if (!job) return;
   if (jobMap.has(job.id)) return;
   jobMap.set(job.id, job);
 
   const start = Date.now();
-  const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);
+  // const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);
   switch (job.type) {
     case JOB_TYPE.MKVDRAMA_STREAM:
-      upsertJob({ ...job, status: JOB_STATUS.RUNNING });
       try {
-        logger.log(`Running job ${job.type}`);
+        logger.log(`Running job ${job.id}`);
         await mkvdrama.runMkvdramaStream(job);
       } catch (error) {
-        handleError(error, logger, `Failed to run job ${job.type}`);
+        handleError(error, logger, `Failed to run ${job.id}`);
         upsertJob({ ...job, status: JOB_STATUS.FAILED });
         break;
       }
@@ -61,7 +69,18 @@ async function runCronJob() {
       break;
   }
   const end = Date.now();
-  logger.log(`Job ${job.type} took ${end - start}ms`);
+  logger.log(`Job ${job.id} took ${end - start}ms`);
 }
 
-startCronJob();
+export async function getJobQueue() {
+  const count = await countJob();
+  if (!count) return { total: 0, wait: 0 };
+  const total = count[0]?.count ?? 0;
+  return { total, wait: Math.ceil(total * 1.2) };
+}
+
+export async function getJob(id: string) {
+  const job = await getJobById(id);
+  if (!job) return null;
+  return job;
+}

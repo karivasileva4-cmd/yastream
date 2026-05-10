@@ -1,4 +1,4 @@
-import { getDisplayResolution, StreamInfo } from "./info.js";
+import { toQuality, StreamInfo } from "./info.js";
 
 export function formatStreamTitle(
   title: string,
@@ -17,7 +17,7 @@ export function formatStreamTitle(
   const displayTime = `${displayHours} ${displayMinutes}`.trim();
   const displaySize = info?.size ? `${info.size.toFixed(2)} GB | ` : "";
   const displayResolution = info?.resolution
-    ? getDisplayResolution(info?.resolution)
+    ? toQuality(info?.resolution)
     : "";
   const displaySizeResolution = `${displaySize}${displayResolution}`.trim();
 

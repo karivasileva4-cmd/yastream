@@ -4,8 +4,8 @@ import { Hono } from "hono";
 import path from "path";
 import pkg from "../../../package.json" with { type: "json" };
 
-const rootDir = process.cwd();
 const publicRouter = new Hono();
+const rootDir = process.cwd();
 const publicDir = path.join(rootDir, "public");
 // Serve custom landing page at root
 let cachedLandingHtml: string | null = null;

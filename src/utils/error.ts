@@ -70,6 +70,15 @@ export class OuoError extends Error {
   }
 }
 
+// VIEWCRATE
+export class ViewcrateError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.VIEWCRATE;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+
 // KISSKH
 
 export class KisskhDetailError extends Error {
@@ -127,35 +136,37 @@ export class MkvdramaError extends Error {
 
 enum ErrorName {
   ERROR = "Error",
-  RATE_LIMIT = "Rate Limit",
-  FUSE = "Fuse Error",
-  MATCHING = "Matching Error",
+  RATE_LIMIT = "[RATELIMIT]",
+  FUSE = "[FUSE] Error",
+  MATCHING = "[MATCHING] Error",
   UNKNOWN = "Unknown Error",
   // PROBE
-  PROBE_INFO = "Probe Info Error",
+  PROBE_INFO = "[PROBE] Info Error",
   // DB
-  DB_LOCK = "DB Lock Error",
-  DB_FOREIGN_KEY = "DB Foreign Key Error",
-  DB_UNIQUE = "DB Unique Error",
+  DB_LOCK = "[DB] Lock Error",
+  DB_FOREIGN_KEY = "[DB] Foreign Key Error",
+  DB_UNIQUE = "[DB] Unique Error",
   // Meta
-  TMDB = "TMDB Error",
-  TVDB = "TVDB Error",
+  TMDB = "[TMDB][E]",
+  TVDB = "[TVDB] Error",
   // FlareSolverr
-  FLARESOLVERR = "[FlareSolverr] Error",
+  FLARESOLVERR = "[FLARESOLVERR] Error",
   // TORBOX
-  TORBOX = "[Torbox] Error",
+  TORBOX = "[TORBOX] Error",
   // OUO
-  OUO = "[Ouo] Error",
+  OUO = "[OUO] Error",
+  // VIEWCRATE
+  VIEWCRATE = "[VIEWCRATE] Error",
   // KISSKH
-  KISSKH_DETAIL = "[Kisskh] Detail Error",
-  KISSKH_EPISODE = "[Kisskh] Episode Error",
-  KISSKH_TOKEN = "[Kisskh] Token Error",
+  KISSKH_DETAIL = "[KISSKH] Detail Error",
+  KISSKH_EPISODE = "[KISSKH] Episode Error",
+  KISSKH_TOKEN = "[KISSKH] Token Error",
   // ONETOUCHTV
-  ONETOUCHTV_SEARCH = "[Onetouchtv] Search Error",
-  ONETOUCHTV_DETAIL = "[Onetouchtv] Detail Error",
-  ONETOUCHTV_EPISODE = "[Onetouchtv] Episode Error",
+  ONETOUCHTV_SEARCH = "[ONETOUCHTV] Search Error",
+  ONETOUCHTV_DETAIL = "[ONETOUCHTV] Detail Error",
+  ONETOUCHTV_EPISODE = "[ONETOUCHTV] Episode Error",
   // MKVDRAMA
-  MKVDRAMA = "[Mkvdrama] Error",
+  MKVDRAMA = "[MKVDRAMA] Error",
 }
 
 export function handleError(
@@ -178,6 +189,9 @@ export function handleError(
       logger.warn(`${message} | ${error.message}`);
       return error;
     case error instanceof KisskhTokenError:
+    case error instanceof MkvdramaError:
+    case error instanceof OuoError:
+    case error instanceof ViewcrateError:
       logger.error(`${message} | ${error.message}`);
       return error;
     case error instanceof Error:

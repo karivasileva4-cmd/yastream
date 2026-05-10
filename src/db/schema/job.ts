@@ -7,8 +7,6 @@ export enum JOB_TYPE {
 }
 export enum JOB_STATUS {
   PENDING = "pending",
-  RUNNING = "running",
-  SUCCESS = "success",
   FAILED = "failed",
 }
 
@@ -17,8 +15,6 @@ export const job = sqliteTable("job", {
   status: text("status", {
     enum: [
       JOB_STATUS.PENDING,
-      JOB_STATUS.RUNNING,
-      JOB_STATUS.SUCCESS,
       JOB_STATUS.FAILED,
     ],
   }).notNull(),

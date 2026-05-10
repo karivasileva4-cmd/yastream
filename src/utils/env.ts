@@ -54,19 +54,19 @@ const envSchema = z.object({
   DATABASE_URL: z.string().default("data/yastream.db"),
 
   // FlareSolverr
-  FLARESOLVERR_URL: z.string().default("http://localhost:8191/v1"),
+  FLARESOLVERR_URL: z.string().default(""),
   FLARESOLVERR_AUTH_HEADER: z.string().default(""),
   FLARESOLVERR_MAX_TIMEOUT: z.coerce.number().default(25000),
   FLARESOLVERR_WAIT_IN_SECONDS: z.coerce.number().default(4),
 
   // Puppeteer
-  PUPPETEER_WS_ENDPOINT: z.string().default("ws://localhost:3000"),
+  PUPPETEER_WS_ENDPOINT: z.string().default(""),
   PUPPETEER_AUTH_HEADER: z.string().default(""),
   PUPPETEER_TIMEOUT_MS: z.coerce.number().default(20000),
 
   // Job
   JOB_ENABLED: z.coerce.boolean().default(false),
-  JOB_CRON: z.string().default("*/30 * * * * *"),
+  JOB_CRON: z.string().default(`*/30 * * * * *`),
 
   // Debrid service
   TORBOX_TIMEOUT_MS: z.coerce.number().default(10000),

@@ -438,7 +438,8 @@ class KissKHScraperr extends BaseProvider {
       if (cacheStreams) return cacheStreams;
       const dbStreams = await StreamService.getDbStreams(
         `${this.name}:${kisskhId}`,
-        season ?? 1,
+        // season ?? 1,
+        1,
         episode ?? 1,
         this.displayName,
         config,
@@ -499,7 +500,8 @@ class KissKHScraperr extends BaseProvider {
     if (cacheSubtitles) return cacheSubtitles;
     const savedSubtitles = await SubtitleService.getSubtitlesFromDb(
       `${this.name}:${content.kisskhId}`,
-      content.season ?? 1,
+      // content.season ?? 1,
+      1,
       content.episode ?? 1,
     );
     if (savedSubtitles.length > 0) {
@@ -572,13 +574,14 @@ class KissKHScraperr extends BaseProvider {
         if (providerContent) {
           upsertProviderContent({
             ...providerContent,
+            title: kisskhDetail.title,
             contentId: contentId,
           });
         } else {
           upsertProviderContent({
             id: `${Prefix.KISSKH}:${kisskhId}`,
             contentId: contentId,
-            title: extractTitle(kisskhDetail.title).title,
+            title: kisskhDetail.title,
             ttl: null,
             provider: this.name,
             externalId: kisskhId.toString(),
@@ -609,7 +612,8 @@ class KissKHScraperr extends BaseProvider {
               ...subtitle,
               id: uuidv7(),
               providerContentId: `${this.name}:${kisskhId}`,
-              season: season?.toString() ?? "1",
+              // season: season?.toString() ?? "1",
+              season: "1",
               episode: episode?.toString() ?? "1",
               subtitle: await axiosGet<string>(subtitle.url),
             };
@@ -637,7 +641,8 @@ class KissKHScraperr extends BaseProvider {
       providerContentId: `${this.name}:${kisskhId}`,
       provider: this.name,
       externalId: kisskhId.toString(),
-      season: season?.toString() ?? "1",
+      // season: season?.toString() ?? "1",
+      season: "1",
       episode: episode?.toString() ?? "1",
       url: cleanUrl(url),
       ttl: TTL_MS.stream,

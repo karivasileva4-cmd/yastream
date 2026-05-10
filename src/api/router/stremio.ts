@@ -7,7 +7,6 @@ import {
   Stream,
   Subtitle,
 } from "@stremio-addon/sdk";
-import axios from "axios";
 import { rateLimiter } from "hono-rate-limiter";
 import {
   buildCatalogHandler,
@@ -28,6 +27,7 @@ import { umami } from "../../utils/analytic/umami.js";
 import { getOrigin } from "../../utils/domain.js";
 import { ENV } from "../../utils/env.js";
 import { Logger } from "../../utils/logger.js";
+import { ntfy } from "../../utils/notify/ntfy.js";
 
 const logger = new Logger("SERVER");
 
@@ -80,19 +80,13 @@ const getLimiter = (
         logger.warn(
           `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
         );
-        if (ENV.NTFY_URL) {
-          axios.post(
-            ENV.NTFY_URL,
-            `
-            **Yastream Rate Limit**
-            - resource: ${resource}
-            - ip: ${ip}
-            - wait: ${getRetryAfterText(parseInt(remaining))}
-            - request: ${c.req.path}
-            `,
-            { headers: { Markdown: "yes" } },
-          );
-        }
+        // ntfy(
+        //   "Yastream Rate Limit",
+        //   `- resource: ${resource}
+        //    - ip: ${ip}
+        //    - wait: ${getRetryAfterText(parseInt(remaining))}
+        //    - request: ${c.req.path}`,
+        // );
         umami?.send(
           {
             website: ENV.UMAMI_WEBSITE_ID,

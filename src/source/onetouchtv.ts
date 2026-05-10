@@ -276,7 +276,7 @@ export class OnetouchtvScrapper extends BaseProvider {
           > = {
             id: onetouchtvId,
             contentId: null,
-            title: extractTitle(item.title).title,
+            title: item.title,
             ttl: TTL_MS.provider,
             provider: this.name,
             externalId: item.id,
@@ -310,6 +310,7 @@ export class OnetouchtvScrapper extends BaseProvider {
               upsertProviderContent({
                 ...providerContent,
                 contentId: contentId,
+                title: item.title,
               });
             }
           } else {
@@ -389,6 +390,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         await upsertProviderContent({
           ...existingContent,
           contentId: contentId,
+          title: detail.title,
           image: detail.image,
           year: year,
           ttl: null,
@@ -430,7 +432,8 @@ export class OnetouchtvScrapper extends BaseProvider {
       // Db streams
       const dbStreams = await StreamService.getDbStreams(
         `${this.name}:${onetouchtvId}`,
-        season ?? 1,
+        // season ?? 1,
+        1,
         episode ?? 1,
         this.displayName,
         config,
@@ -461,6 +464,7 @@ export class OnetouchtvScrapper extends BaseProvider {
           if (providerContent) {
             upsertProviderContent({
               ...providerContent,
+              title: detail.result.title,
               contentId: contentId,
               image: detail.result.image,
               year: year,
@@ -470,7 +474,7 @@ export class OnetouchtvScrapper extends BaseProvider {
             upsertProviderContent({
               id: `${Prefix.ONETOUCHTV}:${onetouchtvId}`,
               externalId: detail.result.id,
-              title: extractTitle(detail.result.title).title,
+              title: detail.result.title,
               provider: this.name,
               type: type,
               contentId: contentId,
@@ -517,7 +521,8 @@ export class OnetouchtvScrapper extends BaseProvider {
             providerContentId: `${this.name}:${detail.result.id}`,
             provider: this.name,
             externalId: episodeId.toString(),
-            season: season?.toString() ?? "1",
+            // season: season?.toString() ?? "1",
+            season: "1",
             episode: episode?.toString() ?? "1",
             url: cleanUrl(source.url),
             ttl: TTL_MS.stream,
@@ -592,7 +597,8 @@ export class OnetouchtvScrapper extends BaseProvider {
     if (cachedSubtitles) return cachedSubtitles;
     const savedSubtitles = await SubtitleService.getSubtitlesFromDb(
       `${this.name}:${onetouchtvId}`,
-      content.season ?? 1,
+      // content.season ?? 1,
+      1,
       content.episode ?? 1,
     );
     if (savedSubtitles.length > 0) {
@@ -633,6 +639,8 @@ export class OnetouchtvScrapper extends BaseProvider {
           subtitles.map(async (subtitle) => ({
             ...subtitle,
             id: uuidv7(),
+            season: "1",
+            episode: episode?.toString() ?? "1",
             providerContentId: `${this.name}:${id}`,
             subtitle: await axiosGet<string>(subtitle.url),
           })),
@@ -681,7 +689,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         image: detailData.result.image,
         ttl: TTL_MS.content,
         type: "movie",
-        title: extractTitle(detailData.result.title).title,
+        title: detailData.result.title,
         year: parseInt(detailData.result.year),
       };
       upsertProviderContent(providerContent);

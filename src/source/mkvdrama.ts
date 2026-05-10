@@ -10,20 +10,23 @@ import {
 import * as cheerio from "cheerio";
 import { CookieData } from "puppeteer";
 import { uuidv7 } from "uuidv7";
+import { upsertStream } from "../db/queries.js";
 import {
-  getContentByTmdb,
-  getProviderContentById,
-  upsertContent,
-  upsertProviderContent,
-  upsertStream,
-} from "../db/queries.js";
-import { upsertMkvdrama as upsertMkvdramas } from "../db/query/mkvdrama.js";
+  getMkvdrama,
+  upsertMkvdrama as upsertMkvdramas,
+} from "../db/query/mkvdrama.js";
 import { upsertOuos } from "../db/query/ouo.js";
 import { EJob, JOB_STATUS, JOB_TYPE } from "../db/schema/job.js";
 import { EOuo } from "../db/schema/ouo.js";
 import { EStreamInsert } from "../db/schema/streams.js";
 import { Prefix, UserConfig } from "../lib/manifest.js";
-import { JobMkvdrama, upsertJob } from "../service/job/job.js";
+import {
+  addJob,
+  getJob,
+  getJobQueue,
+  JobMkvdrama,
+} from "../service/job/job.js";
+import ProviderService from "../service/provider/provider-service.js";
 import StreamService from "../service/resource/stream-service.js";
 import { axiosGet } from "../utils/axios.js";
 import {
@@ -32,19 +35,20 @@ import {
 } from "../utils/browser/flaresolverr.js";
 import { getRedirectedUrlCDP } from "../utils/browser/puppeteer.js";
 import { cache, TTL_MS } from "../utils/cache.js";
+import { getOrigin } from "../utils/domain.js";
 import { handleError, MkvdramaError, OuoError } from "../utils/error.js";
 import { extractTitle } from "../utils/format.js";
 import { matchTitle } from "../utils/fuse.js";
-import { getResolutionFromQuality, QUALITY } from "../utils/info.js";
+import { QUALITY, toResolution } from "../utils/info.js";
+import { ntfy } from "../utils/notify/ntfy.js";
 import {
   filterPixeldrainUrls,
   getPixeldrainDownloadUrl,
 } from "./hoster/pixeldrain.js";
 import { ContentDetail } from "./meta.js";
-import { BaseProvider } from "./provider.js";
-import { tmdb } from "./tmdb.js";
+import { BaseProvider, Provider } from "./provider.js";
 import { getOuoFinalUrl, getOuoId, OUO_HOSTS } from "./web/ouo.js";
-import { getUrlsFromViewcrate } from "./web/viewcrate.js";
+import { getUrlsFromViewcrate, VIEWCRATE_HOST } from "./web/viewcrate.js";
 
 interface MkvdramaSeries {
   id: string;
@@ -161,22 +165,22 @@ export default class MkvdramaScraper extends BaseProvider {
     config: UserConfig,
   ): Promise<Stream[]> {
     try {
-      const { title, type, year, id } = content;
+      const { title, type, year, id, season } = content;
       this.logger.log(`Stream | ${title} ${id}`);
       let mkvdramaId = content.mkvdramaId;
       const episode = content.episode ?? 1;
-      const season = content.season ?? 1;
       const streamKey = `streams:${type}:${this.name}:${id}:${season}:${episode}`;
       const cacheStreams: Stream[] = cache.get(streamKey);
       if (cacheStreams) return cacheStreams;
 
       if (!mkvdramaId) {
-        mkvdramaId = (await this.getSearch(title, year))?.mkvdramaId;
+        mkvdramaId = (await this.getSearch(title, year, season))?.mkvdramaId;
       }
       if (!mkvdramaId) return [];
       const dbStreams = await StreamService.getDbStreams(
         `${this.name}:${mkvdramaId}`,
-        season ?? 1,
+        // season ?? 1,
+        1,
         episode ?? 1,
         this.displayName,
         config,
@@ -186,147 +190,62 @@ export default class MkvdramaScraper extends BaseProvider {
         return dbStreams;
       }
 
-      // upsert job
-      upsertJob({
-        id: `job:streams:${this.name}:${mkvdramaId}`,
-        status: JOB_STATUS.PENDING,
-        type: JOB_TYPE.MKVDRAMA_STREAM,
-        data: JSON.stringify({ mkvdramaId, content }),
-        createdAt: Date.now(),
-      });
-      return [];
-
-      // const data = await this.getDetailAndEpisodes(mkvdramaId);
-      // if (!data) return [];
-      // if (!(data.links.length > 0)) return [];
-      // const detail = data.detail;
-
-      // // resolve all links
-      // const rawLinks = await Promise.all(
-      //   data.links.map(async (link) => {
-      //     const redirectUrl = `${this.baseUrl}${link.link}`;
-      //     this.logger.log(`Redirect Url | ${redirectUrl}`);
-      //     // get ouoLink from flare -> if fail then browser CDP
-      //     const ouoLink = await this.getRedirectedUrl(
-      //       redirectUrl,
-      //       data.response?.solution?.cookies,
-      //       data.response?.solution?.userAgent,
-      //     );
-      //     return { link: ouoLink, quality: link.quality };
-      //   }),
-      // );
-      // const links = rawLinks.filter(
-      //   (link) => link !== null && BEST_QUALITIES.includes(link.quality),
-      // );
-
-      // // return streams for all links without real links
-      // const bestLink = data.links.reverse().find((link) => {
-      //   return BEST_QUALITIES.includes(link.quality);
-      // });
-      // if (!bestLink) return [];
-      // const redirectUrl = `${this.baseUrl}${bestLink.link}`;
-      // this.logger.log(`Redirect Url | ${redirectUrl}`);
-      // // get ouoLink from flare -> if fail then browser CDP
-      // const ouoLink = await this.getRedirectedUrl(
-      //   redirectUrl,
-      //   data.response?.solution?.cookies,
-      //   data.response?.solution?.userAgent,
-      // );
-      // if (!ouoLink) return [];
-      // const viewcrateLink = await getOuoFinalUrl(ouoLink);
-      // this.logger.log(`Final Url | ${viewcrateLink}`);
-      // if (!viewcrateLink) return [];
-      // const urls = await getUrlsFromViewcrate(viewcrateLink);
-      // const pixeldrainUrls = await filterPixeldrainUrls(urls);
-      // const pixeldrainUrl = pixeldrainUrls[episode - 1];
-      // if (!pixeldrainUrl) return [];
-      // const streamUrl = getPixeldrainDownloadUrl(pixeldrainUrl);
-      // const streams = links.map((link, index) => {
-      //   const info: StreamInfo = {
-      //     size: 0,
-      //     resolution: getResolutionFromQuality(link.quality),
-      //   };
-      //   const formatTitle = formatStreamTitle(
-      //     title,
-      //     year,
-      //     season,
-      //     episode,
-      //     info,
-      //   );
-      //   const stream: Stream = {
-      //     url: RedirectService.getRedirectApiUrl(
-      //       `${link.link}:${season}:${episode}`,
-      //     ),
-      //     name: this.displayName,
-      //     title: formatTitle,
-      //     behaviorHints: {
-      //       notWebReady: true,
-      //       bingeGroup: this.displayName,
-      //       filename: `${formatTitle}-${this.name}`,
-      //     },
-      //   };
-      //   return stream;
-      // });
-      // const streams: Stream[] = [
-      //   {
-      //     url: streamUrl,
-      //     name: this.displayName,
-      //     title: formatTitle,
-      //     behaviorHints: {
-      //       notWebReady: true,
-      //       bingeGroup: this.displayName,
-      //       filename: `${formatTitle}-${this.name}`,
-      //     },
-      //   },
-      // ];
-      // cache.set(streamKey, streams, TTL_MS.stream);
-
-      // Save content to DB
-      // const tmdbDetail = await tmdb.searchDetail(content.title, type);
-      // if (tmdbDetail) {
-      //   const oldContent = await getContentByTmdb(tmdbDetail.id, type);
-      //   if (oldContent) {
-      //     const contentId = oldContent.id;
-      //     upsertContent(contentId, tmdbDetail, TTL_MS.content);
-      //     const providerContent = await getProviderContentById(
-      //       `${Prefix.MKDRAMA}:${mkvdramaId}`,
-      //     );
-      //     if (providerContent) {
-      //       upsertProviderContent({
-      //         ...providerContent,
-      //         contentId: contentId,
-      //       });
-      //     } else {
-      //       upsertProviderContent({
-      //         id: `${Prefix.MKDRAMA}:${mkvdramaId}`,
-      //         contentId: contentId,
-      //         title: extractTitle(detail.name).title,
-      //         ttl: null,
-      //         provider: this.name,
-      //         externalId: mkvdramaId.toString(),
-      //         image: detail.poster,
-      //         year: year,
-      //         type: type,
-      //       });
-      //     }
-      //   }
-      // }
-
-      // return streams;
+      // Add job
+      const jobId = `job:streams:${this.name}:${mkvdramaId}`;
+      const job = await getJob(jobId);
+      const { total, wait } = await getJobQueue();
+      let description = `${total} in queue\nWait about ${wait} minutes`;
+      if (job) {
+        switch (job.status) {
+          case JOB_STATUS.PENDING:
+            break;
+          case JOB_STATUS.FAILED:
+            ntfy("yastream Job Failed", `Job ${jobId} failed`);
+            description = `Failed to get stream\nThis stream flow is not implemented yet\nAdmin will check this`;
+            break;
+          default:
+            break;
+        }
+      } else {
+        await addJob({
+          id: jobId,
+          status: JOB_STATUS.PENDING,
+          type: JOB_TYPE.MKVDRAMA_STREAM,
+          data: JSON.stringify({ mkvdramaId, content }),
+          createdAt: Date.now(),
+        });
+        description = `${total + 1} in queue\nWait about ${wait + 1} minutes`;
+      }
+      return [
+        {
+          name: this.displayName,
+          description: description,
+          externalUrl: getOrigin(),
+          behaviorHints: {
+            notWebReady: true,
+            filename: `${description}-${this.name}`,
+          },
+        },
+      ];
     } catch (error) {
       handleError(error, this.logger, `Fail getStreams ${content.title}`);
       return [];
     }
   }
 
-  async getSearch(title: string, year: number): Promise<MkvdramaSearch | null> {
-    const url = `${this.baseUrl}/search?q=${title}`;
+  async getSearch(
+    title: string,
+    year: number,
+    season?: number,
+  ): Promise<MkvdramaSearch | null> {
+    const extractedTitle = extractTitle(title);
+    const url = `${this.baseUrl}/search?q=${extractedTitle.title}`;
     this.logger.log(`GET search | ${url}`);
     const data = await axiosGet<string>(url);
     if (!data) return null;
 
     const searches = this.parseSearch(data);
-    const match = matchTitle(searches, title, year);
+    const match = matchTitle(searches, title, year, season);
     if (!match[0]) return null;
     const matchDetail = match[0];
     return matchDetail;
@@ -487,32 +406,42 @@ export default class MkvdramaScraper extends BaseProvider {
     const jobData: JobMkvdrama = JSON.parse(job.data);
     const mkvdramaId = jobData.mkvdramaId;
     const content = jobData.content;
-    const data = await this.getDetailAndEpisodes(mkvdramaId);
-    if (!data || !(data.links.length > 0)) {
-      throw new MkvdramaError("No data found");
-    }
-    const detail = data.detail;
+    const providerContentId = `${this.name}:${mkvdramaId}`;
 
-    // resolve all links
-    const bestLinks = data.links.filter((link) =>
-      BEST_QUALITIES.includes(link.quality),
-    );
-    const links = await Promise.all(
-      bestLinks.map(async (link) => {
-        const redirectUrl = `${this.baseUrl}${link.link}`;
-        const ouoLink = await getRedirectedUrlCDP(
-          redirectUrl,
-          data.response?.solution?.cookies,
-          data.response?.solution?.userAgent,
-        );
-        this.logger.log(`getRedirectedUrl ${redirectUrl}`);
-        return { link: ouoLink, quality: link.quality };
-      }),
-    );
-    const ouos: (EOuo & { quality: QUALITY })[] = [];
-    // flaresolverr not work concurrently
-    for (const link of links) {
-      if (link.link) {
+    const dbMkvdrama = await this.getDbMkvdrama(`${this.name}:${mkvdramaId}`);
+    let ouos: (EOuo & { quality: QUALITY })[] = [];
+    if (dbMkvdrama && dbMkvdrama.length > 0) {
+      dbMkvdrama.forEach((mkvdrama) => {
+        const ouo = mkvdrama.ouo;
+        if (ouo) ouos.push({ ...ouo, quality: mkvdrama.quality as QUALITY });
+      });
+    }
+
+    if (ouos.length == 0) {
+      const data = await this.getDetailAndEpisodes(mkvdramaId);
+      if (!data || !(data.links.length > 0)) {
+        throw new MkvdramaError("No data found");
+      }
+      const detail = data.detail;
+      // resolve all links
+      const bestLinks = data.links.filter((link) =>
+        BEST_QUALITIES.includes(link.quality),
+      );
+      const links = await Promise.all(
+        bestLinks.map(async (link) => {
+          const redirectUrl = `${this.baseUrl}${link.link}`;
+          const ouoLink = await getRedirectedUrlCDP(
+            redirectUrl,
+            data.response?.solution?.cookies,
+            data.response?.solution?.userAgent,
+          );
+          this.logger.log(`getRedirectedUrl ${redirectUrl}`);
+          return { link: ouoLink, quality: link.quality };
+        }),
+      );
+      // flaresolverr not work concurrently
+      for (const link of links) {
+        if (!link.link) continue;
         const finalUrl = await getOuoFinalUrl(link.link);
         const id = getOuoId(link.link);
         if (id && finalUrl) {
@@ -526,85 +455,47 @@ export default class MkvdramaScraper extends BaseProvider {
           ouos.push(ouo);
         }
       }
+      if (ouos.length === 0) throw new OuoError("No ouo links found");
+      upsertOuos(ouos);
+
+      const syncContent = { ...content, title: detail.name };
+      if (detail.poster) syncContent.thumbnail = detail.poster;
+      ProviderService.syncContentAndProvider(
+        syncContent,
+        mkvdramaId,
+        this.name,
+      );
+
+      upsertMkvdramas(
+        ouos.map((ouo) => {
+          return {
+            id: uuidv7(),
+            providerContentId: providerContentId,
+            ouoId: ouo.id,
+            quality: ouo.quality,
+            createdAt: Date.now(),
+            updatedAt: null,
+            ttl: TTL_MS.stream,
+          };
+        }),
+      );
     }
-    // const ouos = (
-    //   await Promise.all(
-    //     links.map(async (link) => {
-    //       if (link.link) {
-    //         const finalUrl = await getOuoFinalUrl(link.link);
-    //         const id = getOuoId(link.link);
-    //         if (id && finalUrl) {
-    //           const ouo: EOuo & { quality: string } = {
-    //             id: id,
-    //             originalUrl: link.link,
-    //             redirectedUrl: finalUrl,
-    //             createdAt: Date.now(),
-    //             quality: link.quality,
-    //           };
-    //           return ouo;
-    //         }
-    //       }
-    //       return null;
-    //     }),
-    //   )
-    // ).filter((ouoLink) => ouoLink != null);
-    if (ouos.length === 0) throw new OuoError("No ouo links found");
-    upsertOuos(ouos);
-
-    const tmdbDetail = await tmdb.searchDetail(content.title, content.type);
-    const providerContentId = `${Prefix.MKVDRAMA}:${mkvdramaId}`;
-    if (tmdbDetail) {
-      const oldContent = await getContentByTmdb(tmdbDetail.id, content.type);
-      if (oldContent) {
-        const contentId = oldContent.id;
-        upsertContent(contentId, tmdbDetail, TTL_MS.content);
-        const providerContent = await getProviderContentById(providerContentId);
-        if (providerContent) {
-          await upsertProviderContent({
-            ...providerContent,
-            contentId: contentId,
-          });
-        } else {
-          await upsertProviderContent({
-            id: providerContentId,
-            contentId: contentId,
-            title: extractTitle(detail.name).title,
-            ttl: null,
-            provider: this.name,
-            externalId: mkvdramaId.toString(),
-            image: detail.poster,
-            year: content.year,
-            type: content.type,
-          });
-        }
-      }
-    }
-
-    upsertMkvdramas(
-      ouos.map((ouo) => {
-        return {
-          id: uuidv7(),
-          providerContentId: providerContentId,
-          ouoId: ouo.id,
-          resolution: ouo.quality,
-          createdAt: Date.now(),
-          updatedAt: null,
-          ttl: TTL_MS.stream,
-        };
-      }),
-    );
-
     const streamRows = await Promise.all(
       ouos.map(async (ouo) => {
-        const viewcrateUrl = ouo.redirectedUrl;
-        if (!viewcrateUrl) return;
+        const redirectedUrl = ouo.redirectedUrl;
+        if (!redirectedUrl || !redirectedUrl.includes(VIEWCRATE_HOST)) {
+          throw new MkvdramaError("No viewcrate url");
+        }
+        const viewcrateUrl = redirectedUrl;
         const urls = await getUrlsFromViewcrate(viewcrateUrl);
         const pixeldrainUrls = filterPixeldrainUrls(urls);
+        if (pixeldrainUrls.length === 0) {
+          throw new MkvdramaError("No pixeldrain url");
+        }
         this.logger.log(`pixeldrainUrls ${JSON.stringify(pixeldrainUrls)}`);
         const streamRows = pixeldrainUrls.map((pixeldrainUrl, index) => {
-          if (!pixeldrainUrl) return;
           const streamUrl = getPixeldrainDownloadUrl(pixeldrainUrl);
-          const streamResolution = getResolutionFromQuality(ouo.quality);
+          const streamResolution = toResolution(ouo.quality);
           const resolution = `${streamResolution.width}x${streamResolution.height}`;
           const streamRow: Omit<EStreamInsert, "createdAt"> = {
             id: uuidv7(),
@@ -612,7 +503,7 @@ export default class MkvdramaScraper extends BaseProvider {
             provider: this.name,
             externalId: mkvdramaId,
             resolution: resolution,
-            season: content.season?.toString() ?? "1",
+            season: "1",
             episode: (index + 1).toString(),
             url: streamUrl,
             ttl: TTL_MS.stream,
@@ -622,8 +513,18 @@ export default class MkvdramaScraper extends BaseProvider {
         return streamRows;
       }),
     );
-    upsertStream(streamRows.flat().filter((streamRow) => streamRow != null));
+    const streams = streamRows.flat();
+    const streamMap = Object.groupBy(streams, (stream) =>
+      stream.episode.toString(),
+    );
+    Object.values(streamMap).forEach((episodeStreams) => {
+      if (episodeStreams) upsertStream(episodeStreams);
+    });
     return;
+  }
+
+  async getDbMkvdrama(providerContentId: string) {
+    return getMkvdrama(providerContentId);
   }
 
   async getRedirectedUrls(
@@ -636,7 +537,6 @@ export default class MkvdramaScraper extends BaseProvider {
       const redirectedUrls = await Promise.all(
         urls.map(async (url) => {
           ouoLink = await getRedirectedUrlCDP(url, cookies, userAgent);
-          this.logger.log(`getRedirectedUrl ${url} from puppeteer`);
           return ouoLink;
         }),
       );
@@ -697,3 +597,5 @@ export default class MkvdramaScraper extends BaseProvider {
     return null;
   }
 }
+
+export const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);

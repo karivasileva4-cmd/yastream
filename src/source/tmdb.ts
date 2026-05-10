@@ -97,8 +97,13 @@ class TMDBService extends BaseMeta {
     year?: number,
   ): Promise<ContentDetail | null> {
     const extracted = extractTitle(search);
+    const season = extracted.season || 1;
     search = extracted.title;
-    year = extracted.year || year;
+    if (season == 1) {
+      year = extracted.year || year;
+    } else {
+      year = undefined;
+    }
     if (type === "series") {
       return await this.searchSeriesDetail(search, year);
     } else {

@@ -10,15 +10,21 @@ export const mkvdrama = sqliteTable("mkvdrama", {
   ouoId: text("ouo_id")
     .unique()
     .references(() => ouo.id),
-  resolution: text("resolution").notNull(),
+  quality: text("quality").notNull(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at"),
   ttl: integer("ttl"),
 });
 
 export const mkvdramaRelations = relations(mkvdrama, ({ one }) => ({
-  providerContent: one(providerContent),
-  ouo: one(ouo),
+  providerContent: one(providerContent, {
+    fields: [mkvdrama.providerContentId],
+    references: [providerContent.id],
+  }),
+  ouo: one(ouo, {
+    fields: [mkvdrama.ouoId],
+    references: [ouo.id],
+  }),
 }));
 
 export type EMkvdrama = typeof mkvdrama.$inferSelect;

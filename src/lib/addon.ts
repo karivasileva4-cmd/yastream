@@ -21,7 +21,7 @@ import { IDramaScraper } from "../source/idrama.js";
 import KissKHScraper from "../source/kisskh.js";
 import { KkphimScraper } from "../source/kkphim.js";
 import { ContentDetail } from "../source/meta.js";
-import MkvdramaScraper from "../source/mkvdrama.js";
+import { mkvdrama } from "../source/mkvdrama.js";
 import { OnetouchtvScrapper } from "../source/onetouchtv.js";
 import { OphimScraper } from "../source/ophim.js";
 import { BaseProvider, Provider } from "../source/provider.js";
@@ -38,7 +38,6 @@ const idrama = new IDramaScraper(Provider.IDRAMA);
 const kkphim = new KkphimScraper(Provider.KKPHIM);
 const ophim = new OphimScraper(Provider.OPHIM);
 const onetouchtv = new OnetouchtvScrapper(Provider.ONETOUCHTV);
-const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);
 const providers: BaseProvider[] = [
   kisskh,
   onetouchtv,
@@ -69,9 +68,11 @@ async function getContent(
       let content: ContentDetail | null = cacheContent;
       // Get from DB
       if (!content) {
-        const dbContent = await ProviderService.getDbContent(contentType, {
-          imdbId,
-        });
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { imdbId },
+          parseInt(season ?? "1"),
+        );
         if (dbContent) {
           content = dbContent;
           content.imdbId = imdbId;
@@ -105,9 +106,11 @@ async function getContent(
       const cacheContent = cache.get(contentKey);
       let content: ContentDetail | null = cacheContent;
       if (!content) {
-        const dbContent = await ProviderService.getDbContent(contentType, {
-          tmdbId: parseInt(tmdbId),
-        });
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { tmdbId: parseInt(tmdbId) },
+          parseInt(season ?? "1"),
+        );
         content = dbContent ? dbContent : null;
       }
       if (!content) {
@@ -135,9 +138,11 @@ async function getContent(
       const cacheContent = cache.get(contentKey);
       let content: ContentDetail | null = cacheContent;
       if (!content) {
-        const dbContent = await ProviderService.getDbContent(contentType, {
-          tvdbId: parseInt(tvdbId),
-        });
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { tvdbId: parseInt(tvdbId) },
+          parseInt(season ?? "1"),
+        );
         content = dbContent ? dbContent : null;
       }
       if (!content) {
@@ -191,9 +196,11 @@ async function getContent(
       const cacheContent = cache.get(contentKey);
       let content: ContentDetail | null = cacheContent;
       if (!content) {
-        const dbContent = await ProviderService.getDbContent(contentType, {
-          kisskhId,
-        });
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { kisskhId },
+          parseInt(season ?? "1"),
+        );
         if (dbContent) {
           logger.log(`Found DB content ${contentKey}`);
           content = dbContent;
@@ -261,9 +268,11 @@ async function getContent(
       const cacheContent = cache.get(contentKey);
       let content: ContentDetail | null = cacheContent;
       if (!content) {
-        const dbContent = await ProviderService.getDbContent(contentType, {
-          onetouchtvId,
-        });
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { onetouchtvId },
+          parseInt(season ?? "1"),
+        );
         content = dbContent ? dbContent : null;
       }
       if (!content) {
@@ -447,13 +456,11 @@ export async function buildStreamHandler(
         }),
       )
     ).flat();
-    const hasRateLimit = streams.some(
-      (stream) => stream.description == RATE_LIMIT_DESCRIPTION,
-    );
+    const notDone = streams.some((stream) => stream.url == undefined);
     const streamResults: { streams: Stream[] } & Cache = {
       streams: streams,
     };
-    if (streams.length > 0 && !hasRateLimit) {
+    if (streams.length > 0 && !notDone) {
       streamResults.cacheMaxAge = 1 * 60 * 60;
       cache.set(streamKey, streamResults, TTL_MS.stream);
     }
