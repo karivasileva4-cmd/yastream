@@ -15,6 +15,7 @@ import { Provider } from "../../source/provider.js";
 import { extractTitle } from "../../utils/format.js";
 import { tmdb } from "../../source/tmdb.js";
 import { TTL_MS } from "../../utils/cache.js";
+import { uuidv7 } from "uuidv7";
 
 class ProviderService {
   static async getProviderContent(id: string) {
@@ -190,33 +191,34 @@ class ProviderService {
     const title = content.title;
     const tmdbDetail = await tmdb.searchDetail(content.title, content.type);
     const image = content.thumbnail ?? tmdbDetail?.thumbnail;
-    const providerContentId = `${Prefix.MKVDRAMA}:${id}`;
-    if (tmdbDetail) {
-      const oldContent = await getContentByTmdb(tmdbDetail.id, content.type);
-      if (oldContent) {
-        const contentId = oldContent.id;
-        upsertContent(contentId, tmdbDetail, TTL_MS.content);
-        const providerContent = await getProviderContentById(providerContentId);
-        if (providerContent) {
-          await upsertProviderContent({
-            ...providerContent,
-            contentId: contentId,
-            title: title,
-          });
-        } else {
-          await upsertProviderContent({
-            id: providerContentId,
-            contentId: contentId,
-            title: title,
-            ttl: null,
-            provider: provider,
-            externalId: id.toString(),
-            image: image,
-            year: content.year,
-            type: content.type,
-          });
-        }
-      }
+    const providerContentId = `${provider}:${id}`;
+    if (!tmdbDetail) return;
+    const oldContent = await getContentByTmdb(tmdbDetail.id, content.type);
+    let contentId = uuidv7();
+    if (oldContent) {
+      contentId = oldContent.id;
+    } else {
+      await upsertContent(contentId, tmdbDetail, TTL_MS.content);
+    }
+    const providerContent = await getProviderContentById(providerContentId);
+    if (providerContent) {
+      await upsertProviderContent({
+        ...providerContent,
+        contentId: contentId,
+        title: title,
+      });
+    } else {
+      await upsertProviderContent({
+        id: providerContentId,
+        contentId: contentId,
+        title: title,
+        ttl: null,
+        provider: provider,
+        externalId: id.toString(),
+        image: image,
+        year: content.year,
+        type: content.type,
+      });
     }
   }
 }

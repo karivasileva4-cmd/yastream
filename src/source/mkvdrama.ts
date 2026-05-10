@@ -36,6 +36,7 @@ import {
 import { getRedirectedUrlCDP } from "../utils/browser/puppeteer.js";
 import { cache, TTL_MS } from "../utils/cache.js";
 import { getOrigin } from "../utils/domain.js";
+import { ENV } from "../utils/env.js";
 import { handleError, MkvdramaError, OuoError } from "../utils/error.js";
 import { extractTitle } from "../utils/format.js";
 import { matchTitle } from "../utils/fuse.js";
@@ -78,8 +79,9 @@ interface MkvdramaEpisode {
   url: string;
 }
 
-export const MKVDRAMA_HOST = "mkvdrama.net";
-export const MKVDRAMA_ORIGIN = `https://${MKVDRAMA_HOST}`;
+// export const MKVDRAMA_HOST = "mkvdrama.net";
+export const MKVDRAMA_ORIGIN = ENV.MKVDRAMA_URL;
+// export const MKVDRAMA_HOST
 const BEST_QUALITIES = ["2160p", "1080pHD", "1080p"];
 
 export default class MkvdramaScraper extends BaseProvider {
@@ -460,7 +462,7 @@ export default class MkvdramaScraper extends BaseProvider {
 
       const syncContent = { ...content, title: detail.name };
       if (detail.poster) syncContent.thumbnail = detail.poster;
-      ProviderService.syncContentAndProvider(
+      await ProviderService.syncContentAndProvider(
         syncContent,
         mkvdramaId,
         this.name,

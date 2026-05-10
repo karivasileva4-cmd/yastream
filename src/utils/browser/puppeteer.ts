@@ -3,12 +3,11 @@
 
 import { load } from "cheerio";
 import puppeteer, { CookieData, Handler, Page } from "puppeteer";
-import { MKVDRAMA_HOST } from "../../source/mkvdrama.js";
+import { OUO_HOSTS } from "../../source/web/ouo.js";
 import { UA } from "../axios.js";
 import { ENV } from "../env.js";
 import { handleError } from "../error.js";
 import { Logger } from "../logger.js";
-import { OUO_HOSTS } from "../../source/web/ouo.js";
 
 const logger = new Logger("PUPPETEER");
 export async function getBrowser() {
@@ -222,7 +221,7 @@ export async function getRedirectedUrlCDP(
       logger.trace(`reqUrl ${reqUrl}`);
       if (
         reqUrl.startsWith("http") &&
-        !reqUrl.includes(MKVDRAMA_HOST) &&
+        !reqUrl.includes("mkvdrama") &&
         !reqUrl.includes("cloudflare") &&
         !reqUrl.includes("google") &&
         !reqUrl.includes("gstatic") &&

@@ -2,7 +2,7 @@ import Fuse, { FuseResult, IFuseOptions } from "fuse.js";
 import { token_sort_ratio } from "fuzzball";
 import { Logger } from "./logger.js";
 import { ENV } from "./env.js";
-import { normalize } from "./format.js";
+import { extractTitle, normalize } from "./format.js";
 import { FuseError, MatchingError } from "./error.js";
 
 interface SearchItem<T> {
@@ -87,7 +87,9 @@ export function matchTitle<T extends Search>(
   return [best.fuseResult.item.original];
 }
 
-function createSearchList(title: string, season?: number, year?: number) {
+function createSearchList(rawTitle: string, season?: number, year?: number) {
+  const extractedTitle = extractTitle(rawTitle);
+  const title = extractedTitle.title;
   const searchTitles = [title];
   if (season) {
     searchTitles.push(

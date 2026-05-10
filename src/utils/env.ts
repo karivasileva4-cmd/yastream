@@ -56,7 +56,7 @@ const envSchema = z.object({
   // FlareSolverr
   FLARESOLVERR_URL: z.string().default(""),
   FLARESOLVERR_AUTH_HEADER: z.string().default(""),
-  FLARESOLVERR_MAX_TIMEOUT: z.coerce.number().default(25000),
+  FLARESOLVERR_MAX_TIMEOUT: z.coerce.number().default(30000),
   FLARESOLVERR_WAIT_IN_SECONDS: z.coerce.number().default(4),
 
   // Puppeteer
@@ -77,6 +77,9 @@ const envSchema = z.object({
     .transform((str) => JSON.parse(str))
     .pipe(z.array(z.url()))
     .default(["https://kisskh.co", "https://kisskh.do"]),
+
+  // Mkvdrama
+  MKVDRAMA_URL: z.string().default("https://mkvdrama.net"),
 });
 
 // Validate process.env

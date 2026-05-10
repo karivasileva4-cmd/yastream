@@ -64,6 +64,7 @@ async function runCronJob() {
         break;
       }
       deleteJob(job.id);
+      jobMap.delete(job.id);
       break;
     default:
       break;
