@@ -1,22 +1,17 @@
-import { Context, Hono } from "hono";
-import { API, STREAMS, SUBTITLES } from "../../utils/constant.js";
-import { ENV } from "../../utils/env.js";
-
 import { ShortManifestResource } from "@stremio-addon/sdk";
+import { Context, Hono } from "hono";
 import prometheusClient, {
+  clientViews,
   currentVisitors,
   resourceViews,
-  uniqueVisitors,
 } from "../../utils/analytic/prometheus.js";
-const visitors = new Set<string>();
+import { umami } from "../../utils/analytic/umami.js";
+import { API, STREAMS, SUBTITLES } from "../../utils/constant.js";
+import { ENV } from "../../utils/env.js";
+import { hashMD5 } from "../../utils/crypto.js";
+
 const analytics = new Hono();
-if (ENV.PROMETHEUS_ENABLED) {
-  analytics.get("/metrics", async (c) => {
-    return c.text(await prometheusClient.register.metrics(), 200, {
-      headers: [`Content-Type: ${prometheusClient.register.contentType}`],
-    });
-  });
-}
+const visitors = new Set<string>();
 
 export function extractHeaderInfo(c: Context) {
   const ip =
@@ -29,6 +24,15 @@ export function extractHeaderInfo(c: Context) {
   const userAgent = c.req.header("user-agent") || "";
   return { ip, country, url, origin, userAgent };
 }
+
+if (ENV.PROMETHEUS_ENABLED) {
+  analytics.get("/metrics", async (c) => {
+    return c.text(await prometheusClient.register.metrics(), 200, {
+      headers: [`Content-Type: ${prometheusClient.register.contentType}`],
+    });
+  });
+}
+
 analytics.on(
   "GET",
   [
@@ -44,8 +48,8 @@ analytics.on(
     `/${API}/${SUBTITLES}/*`,
   ],
   async (c, next) => {
-    const { ip, url, userAgent } = extractHeaderInfo(c);
-    const key = `${ip}:${userAgent}`;
+    const { ip, origin, url, country, userAgent } = extractHeaderInfo(c);
+    const key = hashMD5(`${ip}:${userAgent}`);
     const resource: ShortManifestResource | "api" = url.includes("/catalog")
       ? "catalog"
       : url.includes("/meta")
@@ -55,22 +59,19 @@ analytics.on(
           : url.includes("/subtitles")
             ? "subtitles"
             : "api";
-    // umami?.track({
-    //   ip: ip,
-    //   userAgent: userAgent,
-    // });
-    if (ENV.PROMETHEUS_ENABLED) {
-      visitors.add(key);
-      setTimeout(
-        () => {
-          visitors.delete(key);
-        },
-        15 * 60 * 1000, // 15 minutes
-      );
-      uniqueVisitors.inc({ ip: ip, user_agent: userAgent });
-      resourceViews.inc({ resource: resource });
-      currentVisitors.set(visitors.size);
+    if (!visitors.has(key)) {
+      umami?.track({ ip, country, origin, userAgent });
     }
+    visitors.add(key);
+    setTimeout(
+      () => {
+        visitors.delete(key);
+      },
+      15 * 60 * 1000, // 15 minutes
+    );
+    resourceViews?.inc({ resource: resource });
+    currentVisitors?.set(visitors.size);
+    clientViews?.inc({ key });
     await next();
   },
 );

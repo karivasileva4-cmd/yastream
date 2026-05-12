@@ -1,8 +1,8 @@
 import { Context, Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
-import { umami } from "../../utils/analytic/umami.js";
+import { resourceRatelimit } from "../../utils/analytic/prometheus.js";
 import { STREAMS, SUBTITLES } from "../../utils/constant.js";
-import { ENV } from "../../utils/env.js";
+import { hashMD5 } from "../../utils/crypto.js";
 import { Logger } from "../../utils/logger.js";
 import { REDIRECT, redirectApiHandler } from "../controller/redirect-api.js";
 import { streamApiHandler } from "../controller/streams-api.js";
@@ -30,25 +30,31 @@ const getLimiter = (
       return key;
     },
     handler: (c) => {
-      const { ip } = extractHeaderInfo(c);
+      const { ip, userAgent } = extractHeaderInfo(c);
+      const key = hashMD5(`${ip}:${userAgent}`);
       const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
       const wait = getRetryAfterText(parseInt(remaining));
       logger.warn(
         `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
       );
-      umami?.send(
-        {
-          website: ENV.UMAMI_WEBSITE_ID,
-          name: "ratelimit",
-          data: {
-            resource: resource,
-            ip: ip,
-            wait: wait,
-            request: c.req.path,
-          },
-        },
-        "event",
-      );
+      resourceRatelimit?.inc({
+        resource,
+        key,
+        wait: remaining,
+      });
+      // umami?.send(
+      //   {
+      //     website: ENV.UMAMI_WEBSITE_ID,
+      //     name: "ratelimit",
+      //     data: {
+      //       resource: resource,
+      //       ip: ip,
+      //       wait: wait,
+      //       request: c.req.path,
+      //     },
+      //   },
+      //   "event",
+      // );
       return c.json(
         {
           message: `Too Many Requests, please wait ${wait}`,

@@ -23,7 +23,8 @@ import {
 import { Hono } from "hono";
 import { getSetDecryptedSubtitle } from "../../source/kisskh-subtitle.js";
 import { Provider } from "../../source/provider.js";
-import { umami } from "../../utils/analytic/umami.js";
+import { resourceRatelimit } from "../../utils/analytic/prometheus.js";
+import { hashMD5 } from "../../utils/crypto.js";
 import { getOrigin } from "../../utils/domain.js";
 import { ENV } from "../../utils/env.js";
 import { Logger } from "../../utils/logger.js";
@@ -62,25 +63,31 @@ const getLimiter = (
         return key;
       },
       handler: (c) => {
-        const { ip } = extractHeaderInfo(c);
+        const { ip, userAgent } = extractHeaderInfo(c);
         const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
         const description = getDescription(parseInt(remaining));
         logger.warn(
           `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
         );
-        umami?.send(
-          {
-            website: ENV.UMAMI_WEBSITE_ID,
-            name: "ratelimit",
-            data: {
-              resource: resource,
-              ip: ip,
-              wait: getRetryAfterText(parseInt(remaining)),
-              request: c.req.path,
-            },
-          },
-          "event",
-        );
+        const key = hashMD5(`${ip}:${userAgent}`);
+        resourceRatelimit?.inc({
+          resource,
+          key,
+          wait: remaining,
+        });
+        // umami?.send(
+        //   {
+        //     website: ENV.UMAMI_WEBSITE_ID,
+        //     name: "ratelimit",
+        //     data: {
+        //       resource: resource,
+        //       ip: ip,
+        //       wait: getRetryAfterText(parseInt(remaining)),
+        //       request: c.req.path,
+        //     },
+        //   },
+        //   "event",
+        // );
         const limitResponse = getResourceLimitResponse(resource, description);
         return c.json({ ...limitResponse, retryAfter: remaining }, 200);
       },
