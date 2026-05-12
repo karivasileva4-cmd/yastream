@@ -22,7 +22,7 @@ if (ENV.PROMETHEUS_ENABLED) {
     labelNames: ["resource", "key", "wait"],
   });
   clientViews = new prometheusClient.Counter({
-    name: `${ENV.DISPLAY_NAME}_ip_total`,
+    name: `${ENV.DISPLAY_NAME}_client_request`,
     help: "Total requests per client",
     labelNames: ["key"],
   });
