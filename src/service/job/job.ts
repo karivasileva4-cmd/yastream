@@ -13,6 +13,7 @@ import { mkvdrama } from "../../source/mkvdrama.js";
 import { ENV } from "../../utils/env.js";
 import { handleError } from "../../utils/error.js";
 import { Logger } from "../../utils/logger.js";
+import { ntfy } from "../../utils/notify/ntfy.js";
 
 export interface JobMkvdrama {
   mkvdramaId: string;
@@ -52,7 +53,6 @@ async function runCronJob() {
   jobMap.set(job.id, job);
 
   const start = Date.now();
-  // const mkvdrama = new MkvdramaScraper(Provider.MKVDRAMA);
   switch (job.type) {
     case JOB_TYPE.MKVDRAMA_STREAM:
       try {
@@ -61,6 +61,7 @@ async function runCronJob() {
       } catch (error) {
         handleError(error, logger, `Failed to run ${job.id}`);
         upsertJob({ ...job, status: JOB_STATUS.FAILED });
+        ntfy("yastream job failed", `Job ${job.id} failed`);
         break;
       }
       deleteJob(job.id);

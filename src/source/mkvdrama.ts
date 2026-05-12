@@ -202,7 +202,6 @@ export default class MkvdramaScraper extends BaseProvider {
           case JOB_STATUS.PENDING:
             break;
           case JOB_STATUS.FAILED:
-            ntfy("yastream Job Failed", `Job ${jobId} failed`);
             description = `Failed to get stream\nThis stream flow is not implemented yet\nAdmin will check this`;
             break;
           default:
