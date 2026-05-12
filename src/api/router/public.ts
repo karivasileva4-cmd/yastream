@@ -25,11 +25,6 @@ const getLandingPage = () => {
   return cachedLandingHtml;
 };
 
-publicRouter.on("GET", ["/", "/configure", "/:configBase64/configure"], (c) => {
-  const html = getLandingPage();
-  return html ? c.html(html) : c.notFound();
-});
-
 function mdToHtml(md: string) {
   return md
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
@@ -43,6 +38,16 @@ function mdToHtml(md: string) {
 }
 
 // Public static file
+const CACHE_SECONDS = 3600;
+const CACHE_CONTROL = `max-age=${CACHE_SECONDS}, public`;
+publicRouter.use(async (c, next) => {
+  c.header("cache-control", CACHE_CONTROL);
+  return next();
+});
+publicRouter.on("GET", ["/", "/configure", "/:configBase64/configure"], (c) => {
+  const html = getLandingPage();
+  return html ? c.html(html) : c.notFound();
+});
 publicRouter.use(
   "/*",
   serveStatic({

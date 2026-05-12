@@ -90,6 +90,12 @@ function getClient(url: string) {
   }
   return defaultClient;
 }
+const customClients = [
+  onetouchtvClient,
+  mkvdramaClient,
+  viewcrateClient,
+  kisskhClient,
+];
 
 const logger = new Logger("AXIOS");
 export async function axiosGet<T>(
@@ -122,7 +128,9 @@ export async function axiosGet<T>(
         });
         clearTimeout(timeoutId);
         const data = response.data;
-        cache.set(urlKey, data, cacheMs);
+        if (customClients.includes(http)) {
+          cache.set(urlKey, data, cacheMs);
+        }
         return data as T;
       } catch (error: AxiosError | unknown) {
         lastError = error;

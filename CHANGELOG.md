@@ -3,7 +3,9 @@
 - Add mkvdrama, only support ouo -> viewcrate -> pixeldrain flow
 - Add job queue for long task like mkvdrama
 - Add some testing for request flow
+- Add cache control for public page
 - Fix season to get right stream
+- Add prometheus metrics
 
 # v0.7.3 2026-05-05
 

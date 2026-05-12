@@ -4,15 +4,11 @@ import { umami } from "../../utils/analytic/umami.js";
 import { STREAMS, SUBTITLES } from "../../utils/constant.js";
 import { ENV } from "../../utils/env.js";
 import { Logger } from "../../utils/logger.js";
+import { REDIRECT, redirectApiHandler } from "../controller/redirect-api.js";
 import { streamApiHandler } from "../controller/streams-api.js";
 import { subtitleApiHandler } from "../controller/subtitles-api.js";
-import {
-  getIp,
-  getRetryAfterText,
-  getUserAgent,
-  RouteConfig,
-} from "./stremio.js";
-import { REDIRECT, redirectApiHandler } from "../controller/redirect-api.js";
+import { extractHeaderInfo } from "./analytics.js";
+import { getRetryAfterText, RouteConfig } from "./stremio.js";
 
 interface ApiRouteConfig extends RouteConfig {
   handler: (c: Context) => Promise<Response>;
@@ -29,13 +25,12 @@ const getLimiter = (
     windowMs: windowMs,
     limit: limit,
     keyGenerator: (c) => {
-      const ip = getIp(c);
-      const userAgent = getUserAgent(c);
+      const { ip, userAgent } = extractHeaderInfo(c);
       const key = `${ip}:${userAgent}`;
       return key;
     },
     handler: (c) => {
-      const ip = getIp(c);
+      const { ip } = extractHeaderInfo(c);
       const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
       const wait = getRetryAfterText(parseInt(remaining));
       logger.warn(

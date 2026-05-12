@@ -5,13 +5,13 @@ import api from "./api/router/api.js";
 import dashboard from "./api/router/dashboard.js";
 import publicRouter from "./api/router/public.js";
 import stremio from "./api/router/stremio.js";
-import analytics from "./api/router/umami.js";
+import analytics from "./api/router/analytics.js";
 import { initMigrations } from "./db/drizzle.js";
 import { buildManifest } from "./lib/manifest.js";
+import { startCronJob } from "./service/job/job.js";
 import { API } from "./utils/constant.js";
 import { ENV } from "./utils/env.js";
 import { Logger } from "./utils/logger.js";
-import { startCronJob } from "./service/job/job.js";
 
 const logger = new Logger("SERVER");
 const HOST = "0.0.0.0";
@@ -66,7 +66,6 @@ process.on("unhandledRejection", (reason, promise) => {
 process.on("uncaughtException", (err) => {
   logger.error(`CRASH PREVENTED ${err}`);
 });
-
 process.on("SIGTERM", () => {
   logger.log("SIGTERM");
   // cache.persistDb();

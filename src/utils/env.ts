@@ -45,6 +45,7 @@ const envSchema = z.object({
   UMAMI_ENABLED: z.coerce.boolean().default(false),
   UMAMI_WEBSITE_ID: z.string().default("f4af25ed-caf9-4fe2-ae07-7f0d50f5a51c"),
   UMAMI_URL: z.url().default("https://umami-fs.tamthai.de"),
+  PROMETHEUS_ENABLED: z.coerce.boolean().default(false),
 
   // Notification
   NTFY_URL: z.url().default(""),

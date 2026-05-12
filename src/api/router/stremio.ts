@@ -20,14 +20,14 @@ import {
   UserConfig,
 } from "../../lib/manifest.js";
 // import app from "../../server.js";
-import { Context, Hono } from "hono";
+import { Hono } from "hono";
 import { getSetDecryptedSubtitle } from "../../source/kisskh-subtitle.js";
 import { Provider } from "../../source/provider.js";
 import { umami } from "../../utils/analytic/umami.js";
 import { getOrigin } from "../../utils/domain.js";
 import { ENV } from "../../utils/env.js";
 import { Logger } from "../../utils/logger.js";
-import { ntfy } from "../../utils/notify/ntfy.js";
+import { extractHeaderInfo } from "./analytics.js";
 
 const logger = new Logger("SERVER");
 
@@ -46,17 +46,6 @@ export function getRetryAfterText(remaining: number) {
     return `${minutes} minutes`;
   }
 }
-export function getIp(c: Context) {
-  const ip =
-    c.req.header("x-forwarded-for") ||
-    c.req.header("cf-connecting-ip") ||
-    "anonymous";
-  return ip;
-}
-export function getUserAgent(c: Context) {
-  const userAgent = c.req.header("user-agent")?.slice(0, 50) || "";
-  return userAgent;
-}
 const getName = () => `⏱️${ENV.DISPLAY_NAME}\nRate Limit`;
 const getLimiter = (
   resource: ShortManifestResource,
@@ -68,25 +57,17 @@ const getLimiter = (
       windowMs: windowMs,
       limit: limit,
       keyGenerator: (c) => {
-        const ip = getIp(c);
-        const userAgent = getUserAgent(c);
+        const { ip, userAgent } = extractHeaderInfo(c);
         const key = `${ip}:${userAgent}`;
         return key;
       },
       handler: (c) => {
-        const ip = getIp(c);
+        const { ip } = extractHeaderInfo(c);
         const remaining = c.res.headers.get("RateLimit-Reset") ?? "5";
         const description = getDescription(parseInt(remaining));
         logger.warn(
           `Rate limit | Resource: ${resource}, IP: ${ip}, Wait: ${remaining}s`,
         );
-        // ntfy(
-        //   "Yastream Rate Limit",
-        //   `- resource: ${resource}
-        //    - ip: ${ip}
-        //    - wait: ${getRetryAfterText(parseInt(remaining))}
-        //    - request: ${c.req.path}`,
-        // );
         umami?.send(
           {
             website: ENV.UMAMI_WEBSITE_ID,
