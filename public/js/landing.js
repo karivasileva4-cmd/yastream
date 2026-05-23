@@ -41,6 +41,25 @@ function copyUrl() {
     });
 }
 
+// Hide show sensitive data
+const form = document.getElementById("configureForm");
+document.querySelectorAll(".hide-show-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const name = btn.getAttribute("name");
+    if (!name) return;
+    const input = form.querySelector('input[id="' + name + '"]');
+    if (!input) return;
+    const isShown = input.type === "text";
+    if (isShown) {
+      input.type = "password";
+      btn.textContent = "Hide";
+    } else {
+      input.type = "text";
+      btn.textContent = "Show";
+    }
+  });
+});
+
 // Changelog
 const modal = document.getElementById("changelogModal");
 const versionBtn = document.getElementById("versionTag");
@@ -76,6 +95,7 @@ function newTomSelect(selector) {
 }
 const kisskhSelect = newTomSelect("#kisskh-catalog");
 const onetouchtvSelect = newTomSelect("#onetouchtv-catalog");
+// const mkvdramaSelect = newTomSelect("#mkvdrama-catalog");
 
 function getTomSelect(catalog) {
   switch (catalog) {
@@ -83,11 +103,17 @@ function getTomSelect(catalog) {
       return kisskhSelect;
     case "onetouchtv":
       return onetouchtvSelect;
+    // case "mkvdrama":
+    //   return mkvdramaSelect;
     default:
       return null;
   }
 }
-const catalogs = ["kisskh", "onetouchtv"];
+const catalogs = [
+  "kisskh",
+  "onetouchtv",
+  //"mkvdrama",
+];
 function updateCatalogs() {
   catalogs.forEach((catalog) => {
     const catalogs = document.getElementById(`${catalog}-catalog`);
@@ -106,23 +132,36 @@ const hiddenCatalogs = [
   "kisskh.series.Search",
   "kisskh.movie.Search",
   "onetouchtv.series.Search",
+  // "mkvdrama.series.Search",
   "idrama.series.iDrama",
   "idrama.series.Search",
 ];
 const defaultCatalogs = [
   "kisskh.series.Korean",
   "onetouchtv.series.Korean",
+  // "mkvdrama.series.Korean",
   ...hiddenCatalogs,
 ];
-
 const defaultConfig = {
-  catalog: ["kisskh", "onetouchtv"],
-  stream: ["kisskh", "onetouchtv"],
+  catalog: [
+    "kisskh",
+    "onetouchtv",
+    //"mkvdrama",
+  ],
+  stream: [
+    "kisskh",
+    "onetouchtv",
+    //"mkvdrama",
+  ],
   catalogs: defaultCatalogs,
   nsfw: false,
   info: false,
   poster: "rpdb",
+  tbKey: "",
+  mfpUrl: "",
+  mfpPass: "",
 };
+const configKeys = Object.keys(defaultConfig);
 // Configure
 document
   .getElementById("configureForm")
@@ -153,17 +192,7 @@ function updateManifestUrl() {
     );
   }
   console.log("Final catalogs list:", config.catalogs);
-  const checkedBoxes = document.querySelectorAll(
-    '#configureForm input[type="checkbox"]',
-  );
-  const radios = document.querySelectorAll(
-    '#configureForm input[type="radio"]',
-  );
-  radios.forEach((radio) => {
-    if (radio.name == "poster" && radio.checked == true) {
-      config[radio.name] = radio.id;
-    }
-  });
+  const checkedBoxes = form.querySelectorAll('input[type="checkbox"]');
   checkedBoxes.forEach((box) => {
     if (!box.id.includes(".")) {
       // for nsfw, info
@@ -175,6 +204,21 @@ function updateManifestUrl() {
         config[type].push(source);
       }
     }
+  });
+  const radios = form.querySelectorAll('input[type="radio"]');
+  radios.forEach((radio) => {
+    if (radio.name == "poster" && radio.checked == true) {
+      config[radio.name] = radio.id;
+    }
+  });
+  const texts = form.querySelectorAll('input[type="text"]');
+  texts.forEach((text) => {
+    const id = text.id;
+    if (configKeys.includes(id)) config[id] = text.value;
+  });
+  const passwords = form.querySelectorAll('input[type="password"]');
+  passwords.forEach((password) => {
+    config[password.id] = password.value;
   });
 
   console.log("config:", config);
@@ -192,6 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const match = path.match(/\/(.+)\/configure/);
   const hasConfig = match && match[1];
   const config = hasConfig ? JSON.parse(atob(match[1])) : defaultConfig;
+  console.log("config:", config);
   try {
     Object.keys(config).forEach((key) => {
       const values = config[key];
@@ -205,8 +250,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // checked type
         case "nsfw":
         case "info":
-          const input = document.getElementById(key);
-          input.checked = config[key];
+          const checkInput = document.getElementById(key);
+          checkInput.checked = config[key];
           break;
         // multi select
         case "catalogs":
@@ -231,6 +276,13 @@ document.addEventListener("DOMContentLoaded", () => {
               input.checked = false;
             }
           });
+          break;
+        // text/password type
+        case "tbKey":
+        case "mfpUrl":
+        case "mfpPass":
+          const textInput = document.getElementById(key);
+          textInput.value = config[key];
           break;
         default:
           break;

@@ -80,7 +80,7 @@ export function matchTitle<T extends Search>(
       `Token-set score too low (${tokenScore}) | "${best.queryUsed}" -> "${candidateTitle}"`,
     );
   }
-  logger.log(
+  logger.debug(
     `Match | ${best.fuseResult.item.original.title}, Fuse ${best.fuseResult.score?.toFixed(3)}, Fuzz ${tokenScore}`,
   );
 

@@ -28,7 +28,6 @@ import { BaseProvider, Provider } from "../source/provider.js";
 import { tmdb } from "../source/tmdb.js";
 import { tvdb } from "../source/tvdb.js";
 import { cache, TTL_MS, TTL_SECS } from "../utils/cache.js";
-import { RATE_LIMIT_DESCRIPTION } from "../utils/constant.js";
 import { extractTitle } from "../utils/format.js";
 import { Logger } from "../utils/logger.js";
 import { defaultConfig, Prefix, UserConfig } from "./manifest.js";
@@ -329,6 +328,80 @@ async function getContent(
       content.episode = episode ? parseInt(episode) : 1;
       return content;
     }
+    case args.id.startsWith(Prefix.MKVDRAMA): {
+      // id | mkvdrama:detailId:season:episode
+      const [prefix, mkvdramaId, season, episode] = args.id.split(":");
+      if (!mkvdramaId) return null;
+      const contentKey = `content:${Provider.MKVDRAMA}:${mkvdramaId}`;
+      const contentType = args.type === "series" ? "series" : "movie";
+      const cacheContent = cache.get(contentKey);
+      let content: ContentDetail | null = cacheContent;
+      if (!content) {
+        const dbContent = await ProviderService.getDbContent(
+          contentType,
+          { mkvdramaId },
+          parseInt(season ?? "1"),
+        );
+        content = dbContent ? dbContent : null;
+      }
+      if (!content) {
+        const providerContent = await getProviderContentById(
+          `${prefix}:${mkvdramaId}`,
+        );
+        if (providerContent) {
+          content = {
+            id: mkvdramaId,
+            mkvdramaId,
+            type: args.type,
+            title: providerContent.title,
+            year: providerContent.year,
+            season: season ? parseInt(season) : 1,
+            episode: episode ? parseInt(episode) : 1,
+          };
+        } else {
+          const detail = await mkvdrama.getDetailAndEpisodes(mkvdramaId);
+          if (!detail) return null;
+          const { name, released, poster } = detail.detail;
+          const title = name;
+          const year = released
+            ? new Date(released).getFullYear().toString()
+            : new Date().getFullYear().toString();
+          const extracted = extractTitle(title);
+          const pureTitle = extracted.title;
+          const yearFormat = extracted.year || parseInt(year);
+          content = {
+            id: mkvdramaId,
+            mkvdramaId,
+            title: pureTitle,
+            year: yearFormat,
+            type: args.type,
+            season: season ? parseInt(season) : 1,
+            episode: episode ? parseInt(episode) : 1,
+          };
+          const providerContent: Omit<
+            EProviderContent,
+            "createdAt" | "updatedAt"
+          > = {
+            ...content,
+            id: `${Provider.MKVDRAMA}:${mkvdramaId}`,
+            contentId: null,
+            provider: Provider.MKVDRAMA,
+            externalId: mkvdramaId,
+            image: poster || null,
+            ttl: TTL_MS.content,
+          };
+          upsertProviderContent(providerContent);
+        }
+        cache.set(contentKey, content, TTL_MS.content);
+      }
+      if (!content) {
+        logger.error(`Not found mkvdrama ${mkvdramaId}`);
+        return null;
+      }
+      content.season = season ? parseInt(season) : 1;
+      content.episode = episode ? parseInt(episode) : 1;
+      return content;
+    }
   }
   return null;
 }
@@ -436,7 +509,7 @@ export async function buildStreamHandler(
 ): Promise<{ streams: Stream[] } & Cache> {
   logger.log(`Stream | ${args.id}`);
   try {
-    const streamKey = `streams:${args.type}:${args.id}:${JSON.stringify(config.stream)}:${config.info}`;
+    const streamKey = `streams:${args.type}:${args.id}:${JSON.stringify(config.stream)}:${config.info}:${config.tbKey}:${config.mfpUrl}:${config.mfpPass}`;
     const cacheStreams = cache.get(streamKey);
     if (cacheStreams) return cacheStreams;
     const content = await getContent(args);

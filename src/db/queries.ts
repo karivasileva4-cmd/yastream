@@ -226,6 +226,14 @@ export async function upsertStream(stream: Omit<EStreamInsert, "createdAt">[]) {
           size: sql.raw(`excluded.${streams.size.name}`),
           duration: sql.raw(`excluded.${streams.duration.name}`),
         },
+      })
+      .onConflictDoUpdate({
+        target: streams.hash,
+        set: {
+          url: sql.raw(`excluded.${streams.url.name}`),
+          createdAt: sql.raw(`excluded.${streams.createdAt.name}`),
+          ttl: sql.raw(`excluded.${streams.ttl.name}`),
+        },
       });
     const row = rows[0];
     logger.debug(

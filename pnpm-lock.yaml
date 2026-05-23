@@ -96,6 +96,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -745,7 +748,7 @@ packages:
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@stremio-addon/sdk@https://codeload.github.com/hoangtamthai/stremio-addon-sdk/tar.gz/db1393822c2ce4c63f78aacabf40b13e424881e4':
-    resolution: {tarball: https://codeload.github.com/hoangtamthai/stremio-addon-sdk/tar.gz/db1393822c2ce4c63f78aacabf40b13e424881e4}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/hoangtamthai/stremio-addon-sdk/tar.gz/db1393822c2ce4c63f78aacabf40b13e424881e4}
     version: 0.3.3
 
   '@tailwindcss/node@4.2.4':
@@ -1590,6 +1593,9 @@ packages:
   jiti@2.7.0:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
+
+  jose@6.2.3:
+    resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -3417,6 +3423,8 @@ snapshots:
   isobject@3.0.1: {}
 
   jiti@2.7.0: {}
+
+  jose@6.2.3: {}
 
   js-tokens@4.0.0: {}
 

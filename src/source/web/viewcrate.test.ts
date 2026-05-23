@@ -1,18 +1,32 @@
 import * as crypto from "crypto";
+import * as fs from "fs";
+import * as cheerio from "cheerio";
 import { describe, expect, it } from "vitest";
 import {
+  getEpisodeHosters,
   getUrlsFromViewcrate,
+  getUrlsFromViewcrateDlc,
   parseJkAndCryptedFromHtml,
 } from "./viewcrate.js";
 
 describe("Viewcrate Hoster", () => {
-  it.skip("get viewcrate urls", async () => {
-    const urls = await getUrlsFromViewcrate(
-      "https://viewcrate.cc/c/3e6b3ababeb772cfe42ac72afd962fef",
-    );
+  it("get viewcrate urls", async () => {
+    const url = "https://viewcrate.cc/c/eb3622fb78bca7ffa70c9af05e7ad4cd";
+    const urls = await getUrlsFromViewcrate(url);
     console.log("urls", urls);
+    console.log("length", urls.length);
     expect(urls).not.toBeNull();
   }, 30000);
+  it("get viewcrate urls dlc", async () => {
+    const url = "https://viewcrate.cc/c/eb3622fb78bca7ffa70c9af05e7ad4cd";
+    // const url = "https://viewcrate.cc/c/e0eebd57da6e265d55771fe51d5ffab0";
+    // const url = "https://viewcrate.cc/c/b1d961fdb62630b581009b285427530d"
+    const { urls, episodes } = await getUrlsFromViewcrateDlc(url);
+    console.log("urls", urls);
+    console.log("urls length", urls.length);
+    console.log("episodes", episodes);
+    expect(urls).not.toBeNull();
+  }, 10000);
 
   it.skip("decrypt", async () => {
     const response = `<html>
@@ -47,4 +61,41 @@ describe("Viewcrate Hoster", () => {
     const links = text.match(/https?:\/\/[^\s"'<>]+/g) || [];
     console.log("links", links);
   }, 15000);
+
+  it("get episode hosts", () => {
+    const html = fs.readFileSync("./src/source/web/viewcrate2.html", "utf8");
+    const episodes = getEpisodeHosters(html);
+    console.log("episodes", JSON.stringify(episodes, null, 2));
+    return episodes;
+  });
+
+  it("decrypt", async () => {
+    const crypto = require("crypto");
+
+    const crypted =
+      "cDALeHifWb9PpQgQeR42P5zyjH2PjuNz90L3KRasT4C03+KFQGt/O+4n6Uh3RpyGXt130Y9aQw2IA4T87ovoLzL1mLUrGswYdBagoNhe1WprsUBEKp2lcaz5VprbW7YylxXPTjHU4suqVHpsbC8hF8FkvysDf2580V3xaPQxs9lqC07XgbAXX8bVT25M+T+tj4s484xKF5Jk2O5rlaRSiweeCiwT2ZV3osQPa3ozQ6PGV3hYHd2HOaLV0JxTmd5l+DUzhkbJsehWYbbkfcErGDlVNS9DpolcWWx3TTvp2+IAU2k9F4UFeIqPrufCvb6IJxLcBz80h14s1v+1G4omdPm//2p4gjmZStglIzEwQuww+dJfeJpPDVcyq/FpNgk3u9cmrlafaUH99Ry0Zic5qVhCyKkm5YAG3EQ+hLvhGKIE9EJ9OxAkTF0tzF2jqKGbnKbTq5F3/5ljtt33VTS4uZUel+4jSKRXCrdZhFYii1grPBg42s5lyNO2IEHcPWhHVY7RsVFRbhRhpV8PxL7ls08mQy89MZMTHxFvAH15+Q4BKJdg8M8VxkKetPajVbexCvb1DQv6ChAwJL5A6zHwk+LXgYoyN3Xt/eq8LBV8jj7djJa/2WiEMCA5WsrCTx/EmHXcMOmVy6JpXjdH56lIoP7/O4zBg74C7TweiCQQpItfgyDqzG8GR4gUjvIZ+3M7xgv8fltrDuw9ndac5QT58DTMwZMUEL77ixR6VLpv1nLvYd/bBzlArvTux218WvJ9WutfK8ZuJSHoDtsunz0lRClRAjcZcrqDoLzuizPJT6mYJ+lZpVz2dJX2RF5bZa7CgXIodaQDHUTd2iToiKppStttOVw3LWCC8p0qooqP5NQc0XXikdCwd3/OXvy/1PhYdO41QYiD0ANOElTQAGP4mZZVwLGY8F+ikGnMnfVGySOZjINnQf0nP5CImdZl13nSSxZNzDnOhvxwgaNNpNH8zpQmbo2uenrafcZ7bKQY4yE0zA89A8Jw1+Ke3r9mR2KanbjL1yNvQVGSCXhuN0C/1Q+jvdO9Vpudhp28JE8gR5U9WIpeSMbWhI5irQ/ctVKiuEUe/yRBE4S4l3Duui59YDFNO93UTTIikRemd2Ud8eVvvXf3HBIJS1Gv+EapLHmJ/xHcW44o8XdByj9f7foi4lISkWbVI9T7jkpOSsSbxH8EHY8ZerYgC+IIUQj9yAQLhYklSv+bECnbMJNIDqtgJJO/ot1GpD7T/AKibeJkDwQ=";
+    const jk = "ed6422cc3f481a6e8cd8b0297736f3c1";
+
+    const key = Buffer.from(jk, "hex");
+    const combined = Buffer.from(crypted, "base64");
+
+    // 1. Slice the last 16 bytes for the true IV
+    // const iv = combined.subarray(0, 8);
+    const iv = crypto.createHash("md5").update(key).digest();
+    const encrypted = combined.subarray(16);
+    // const iv = combined.subarray(combined.length - 16);
+    // 2. Take everything else up to that point as the encrypted payload
+    // const encrypted = combined.subarray(0, combined.length - 16);
+
+    const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
+    decipher.setAutoPadding(false);
+
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]);
+
+    const text = decrypted.toString("utf8");
+    console.log(text);
+  });
 });

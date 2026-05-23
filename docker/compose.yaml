@@ -1,4 +1,5 @@
 services:
+  # Puppeteer
   browserless:
     image: browserless/chrome:latest
     ports:
@@ -9,15 +10,26 @@ services:
       - MAX_QUEUE_CAPACITY=10 # Queue up requests if over capacity
       - PREBOOT_CHROME=true # Keeps one browser "warm" for speed
 
+  # Flaresolverr
+  lb:
+    image: nginx:alpine
+    ports:
+      - "8191:8191"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - flaresolverr
+    restart: unless-stopped
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_FILE=${LOG_FILE:-none}
       - LOG_HTML=${LOG_HTML:-false}
       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
       - TZ=Europe/Berlin
-    ports:
-      - "8191:8191"
     restart: unless-stopped
+    deploy:
+      mode: replicated
+      replicas: 4 # Number of concurrent browser pipelines

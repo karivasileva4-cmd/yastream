@@ -18,7 +18,12 @@ export interface UserConfig {
   nsfw: boolean;
   info: boolean;
   poster: "rpdb" | "erdb" | "xrdb";
-  torboxApiKey: string;
+  // Secret
+  tbKey: string;
+  mfpUrl: string;
+  mfpPass: string;
+  // Other (not on configure)
+  ip: string;
 }
 
 export enum Prefix {
@@ -41,16 +46,30 @@ export const defaultCatalogs = [
 
   `${Prefix.ONETOUCHTV}.series.Korean`,
   `${Prefix.ONETOUCHTV}.series.Search`,
+
+  // `${Prefix.MKVDRAMA}.series.Korean`,
+  // `${Prefix.MKVDRAMA}.series.Search`,
 ];
 
 export const defaultConfig: UserConfig = {
-  catalog: [Provider.KISSKH, Provider.ONETOUCHTV],
-  stream: [Provider.KISSKH, Provider.ONETOUCHTV],
+  catalog: [
+    Provider.KISSKH,
+    Provider.ONETOUCHTV,
+    // Provider.MKVDRAMA
+  ],
+  stream: [
+    Provider.KISSKH,
+    Provider.ONETOUCHTV,
+    // Provider.MKVDRAMA
+  ],
   catalogs: defaultCatalogs,
   nsfw: false,
   info: false,
   poster: "rpdb",
-  torboxApiKey: "",
+  tbKey: "",
+  mfpUrl: "",
+  mfpPass: "",
+  ip: "",
 };
 
 function buildCatalogMap(catalogs: string[] = defaultCatalogs) {
@@ -92,6 +111,7 @@ const baseManifest: Manifest = {
     Prefix.IDRAMA,
     Prefix.KISSKH,
     Prefix.ONETOUCHTV,
+    // Prefix.MKVDRAMA,
   ],
   types: ["movie", "series"],
   name: pkg.name,
@@ -118,7 +138,12 @@ export function buildManifest(config?: UserConfig) {
     const metaResource: FullManifestResource = {
       name: "meta",
       types: ["movie", "series"],
-      idPrefixes: [Prefix.IDRAMA, Prefix.KISSKH, Prefix.ONETOUCHTV],
+      idPrefixes: [
+        Prefix.IDRAMA,
+        Prefix.KISSKH,
+        Prefix.ONETOUCHTV,
+        // Prefix.MKVDRAMA,
+      ],
     };
     manifest.resources.push(metaResource);
     config.catalog.forEach((provider) => {

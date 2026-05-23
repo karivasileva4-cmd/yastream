@@ -88,7 +88,7 @@ export async function postFlareSolverr(
   postData = "",
 ): Promise<FlareSolverrResponse | null> {
   try {
-    const cacheKey = `flaresolverr:${url}`;
+    const cacheKey = `flaresolverr:${url}:${postData}`;
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 

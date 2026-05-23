@@ -1,9 +1,23 @@
-import { ENV } from "./env.js";
+import { UserConfig } from "../lib/manifest.js";
 
-export function getProxyLink(url: string) {
-  const mediaflowproxyUrl = ENV.MEDIAFLOW_PROXY_URL;
+export function getMediaflowproxyM3u8Url(url: string, config: UserConfig) {
+  const mediaflowproxyUrl = config.mfpUrl;
   if (!mediaflowproxyUrl) return url;
-  const mediaflowproxyPass = ENV.MEDIAFLOW_PROXY_PASSWORD;
-  const proxyUrl = `${mediaflowproxyUrl}/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${mediaflowproxyPass}`;
+  const mediaflowproxyPass = config.mfpPass;
+  const proxyUrl = new URL(
+    `/proxy/hls/manifest.m3u8?d=${encodeURIComponent(url)}&api_password=${mediaflowproxyPass}`,
+    mediaflowproxyUrl,
+  ).toString();
+  return proxyUrl;
+}
+
+export function getMediaflowproxyTranscodeUrl(url: string, config: UserConfig) {
+  const mediaflowproxyUrl = config.mfpUrl;
+  if (!mediaflowproxyUrl) return url;
+  const mediaflowproxyPass = config.mfpPass;
+  const proxyUrl = new URL(
+    `/proxy/transcode/playlist.m3u8?d=${encodeURIComponent(url)}&api_password=${mediaflowproxyPass}`,
+    mediaflowproxyUrl,
+  ).toString();
   return proxyUrl;
 }

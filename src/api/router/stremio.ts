@@ -75,19 +75,6 @@ const getLimiter = (
           key,
           wait: remaining,
         });
-        // umami?.send(
-        //   {
-        //     website: ENV.UMAMI_WEBSITE_ID,
-        //     name: "ratelimit",
-        //     data: {
-        //       resource: resource,
-        //       ip: ip,
-        //       wait: getRetryAfterText(parseInt(remaining)),
-        //       request: c.req.path,
-        //     },
-        //   },
-        //   "event",
-        // );
         const limitResponse = getResourceLimitResponse(resource, description);
         return c.json({ ...limitResponse, retryAfter: remaining }, 200);
       },
@@ -229,7 +216,7 @@ stremioRouteConfigs.forEach((config) => {
   });
 });
 
-const decodeConfig = (configBase64: string): UserConfig => {
+export const decodeConfig = (configBase64: string): UserConfig => {
   try {
     const decoded = Buffer.from(configBase64, "base64").toString("utf-8");
     logger.debug(`Config | ${decoded}`);

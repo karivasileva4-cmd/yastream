@@ -6,10 +6,16 @@ import {
 } from "../../db/queries.js";
 import { API, SUBTITLES } from "../../utils/constant.js";
 import { getOrigin } from "../../utils/domain.js";
+import { cache } from "../../utils/cache.js";
 
 class SubtitleService {
   static async getSubtitle(id: string) {
-    return getSubtitle(id);
+    const subtitle = await getSubtitle(id);
+    if (!subtitle) return undefined;
+    const cacheKey = `subtitle:service:${subtitle.id}`;
+    const cacheResult = await cache.get(cacheKey);
+    if (cacheResult) return cacheResult;
+    return subtitle;
   }
   static async getSubtitlesFromDb(
     id: string,

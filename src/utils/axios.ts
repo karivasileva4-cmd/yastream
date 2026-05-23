@@ -1,8 +1,11 @@
 import axios, { AxiosError, AxiosRequestConfig, HttpStatusCode } from "axios";
 import EventEmitter from "events";
 import https from "https";
+import { GOFILE_API_ORIGIN, GOFILE_ORIGIN } from "../source/hoster/gofile.js";
 import { MKVDRAMA_ORIGIN } from "../source/mkvdrama.js";
 import { decryptString } from "../source/onetouchtv-crypto.js";
+import { DECRYPTIT_HOST, DECRYPTIT_ORIGIN } from "../source/web/decryptit.js";
+import { FILECRYPT_ORIGIN } from "../source/web/filecrypt.js";
 import { VIEWCRATE_ORIGIN } from "../source/web/viewcrate.js";
 import { cache } from "./cache.js";
 import { ONETOUCHTV_ORIGIN, USER_AGENT } from "./constant.js";
@@ -12,9 +15,6 @@ import { Logger } from "./logger.js";
 
 // process.setMaxListeners(20);
 EventEmitter.defaultMaxListeners = 23;
-export const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
-
 const httpsAgent = new https.Agent({
   keepAlive: true,
   maxSockets: 20,
@@ -43,10 +43,48 @@ const defaultClient = createClient({
   Connection: "keep-alive",
   "Upgrade-Insecure-Requests": "1",
 });
+
+const viewcrateClient = createClient({
+  "User-Agent": USER_AGENT,
+  Accept: "text/html",
+  Origin: VIEWCRATE_ORIGIN,
+  Referer: VIEWCRATE_ORIGIN,
+});
+
+const filecryptClient = createClient({
+  "User-Agent": USER_AGENT,
+  Accept: "text/html",
+  Origin: FILECRYPT_ORIGIN,
+  Referer: FILECRYPT_ORIGIN,
+});
+
+const decryptitClient = createClient({
+  "User-Agent": USER_AGENT,
+  Accept: "application/json, text/javascript, */*",
+  "Accept-Language": "en-US,en;q=0.5",
+  "X-Requested-With": "XMLHttpRequest",
+  Host: DECRYPTIT_HOST,
+  Origin: DECRYPTIT_ORIGIN,
+  Connection: "keep-alive",
+  Referer: `${DECRYPTIT_ORIGIN}/`,
+});
+
+const gofileClient = createClient({
+  "User-Agent": USER_AGENT,
+  Accept: "application/json",
+  Origin: GOFILE_ORIGIN,
+  Connection: "keep-alive",
+  Referer: `${GOFILE_ORIGIN}/`,
+  Authorization: `Bearer ${ENV.GOFILE_TOKEN}`,
+  "X-Website-Token":
+    "4d3b34b24ce25cd943a73caf8c59f29d65a61ec11370f3630d53bc2dd37e42e9",
+});
+
 const kisskhClient = createClient({
   "User-Agent": USER_AGENT,
   Accept: "application/json",
 });
+
 const onetouchtvHost = Buffer.from("YXBpMy5kZXZjb3JwLm1l=", "base64").toString(
   "utf-8",
 );
@@ -61,13 +99,6 @@ onetouchtvClient.interceptors.response.use((response) => {
   return response;
 });
 
-const viewcrateClient = createClient({
-  "User-Agent": USER_AGENT,
-  Accept: "text/html",
-  Origin: "https://viewcrate.cc",
-  Referer: "https://viewcrate.cc",
-});
-
 const mkvdramaClient = createClient({
   "User-Agent": USER_AGENT,
   Accept: "text/html",
@@ -76,25 +107,32 @@ const mkvdramaClient = createClient({
 });
 
 function getClient(url: string) {
-  if (ENV.KISSKH_URLS.some((kisskhUrl) => url.includes(kisskhUrl))) {
-    return kisskhClient;
+  switch (true) {
+    case ENV.KISSKH_URLS.some((kisskhUrl) => url.includes(kisskhUrl)):
+      return kisskhClient;
+    case url.includes(onetouchtvHost):
+      return onetouchtvClient;
+    case url.includes(MKVDRAMA_ORIGIN):
+      return mkvdramaClient;
+    case url.includes(VIEWCRATE_ORIGIN):
+      return viewcrateClient;
+    case url.includes(FILECRYPT_ORIGIN):
+      return filecryptClient;
+    case url.includes(DECRYPTIT_ORIGIN):
+      return decryptitClient;
+    case url.includes(GOFILE_API_ORIGIN):
+      return gofileClient;
+    default:
+      return defaultClient;
   }
-  if (url.includes(onetouchtvHost)) {
-    return onetouchtvClient;
-  }
-  if (url.includes(MKVDRAMA_ORIGIN)) {
-    return mkvdramaClient;
-  }
-  if (url.includes(VIEWCRATE_ORIGIN)) {
-    return viewcrateClient;
-  }
-  return defaultClient;
 }
 const customClients = [
+  viewcrateClient,
+  filecryptClient,
+  decryptitClient,
+  kisskhClient,
   onetouchtvClient,
   mkvdramaClient,
-  viewcrateClient,
-  kisskhClient,
 ];
 
 const logger = new Logger("AXIOS");
@@ -205,11 +243,11 @@ export async function axiosHead<T>(
 }
 export async function axiosPost<T>(
   url: string,
+  postData?: string,
   config?: AxiosRequestConfig,
   cacheMs: number = 2 * 60 * 60 * 1000,
-  postData?: string,
 ): Promise<T | null> {
-  const urlKey = `url:${url}`;
+  const urlKey = `url:${url}:${postData}`;
   const cacheData = cache.get(urlKey);
   if (cacheData) return cacheData;
   let lastError: AxiosError | unknown;
@@ -222,7 +260,9 @@ export async function axiosPost<T>(
     try {
       const response = await http.post(url, postData, config);
       const data = response.data;
-      cache.set(urlKey, data, cacheMs);
+      if (customClients.includes(http)) {
+        cache.set(urlKey, data, cacheMs);
+      }
       return data as T;
     } catch (error: AxiosError | unknown) {
       lastError = error;

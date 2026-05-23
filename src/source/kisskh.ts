@@ -430,6 +430,7 @@ class KissKHScraperr extends BaseProvider {
     content: ContentDetail,
     config: UserConfig,
   ): Promise<Stream[]> {
+    this.logger.log(`Stream | ${content.title} ${content.id}`);
     const { title, type, year, season, episode, id, kisskhId, altTitle } =
       content;
     try {

@@ -9,13 +9,13 @@ import {
 import { Prefix, UserConfig } from "../lib/manifest.js";
 import { axiosGet } from "../utils/axios.js";
 import { cache } from "../utils/cache.js";
+import { formatStreamTitle } from "../utils/format.js";
+import { matchTitle, Search } from "../utils/fuse.js";
 import { probeStreamInfo } from "../utils/info.js";
 import { CountryCode, iso639FromCountryCode } from "../utils/language.js";
-import { getProxyLink } from "../utils/mediaflowproxy.js";
+import { getMediaflowproxyM3u8Url } from "../utils/mediaflowproxy.js";
 import { ContentDetail } from "./meta.js";
 import { BaseProvider } from "./provider.js";
-import { matchTitle, Search } from "../utils/fuse.js";
-import { formatStreamTitle } from "../utils/format.js";
 
 interface KkphimSearchResponse {
   data: {
@@ -121,7 +121,7 @@ export class KkphimScraper extends BaseProvider {
       const streamPromises = episodeDetails.map(async (item, index) => {
         const link = item.link_m3u8;
         this.logger.log(`Stream Url | ${link}`);
-        const proxyLink = getProxyLink(link);
+        const proxyLink = getMediaflowproxyM3u8Url(link, config);
         const info = config.info ? await probeStreamInfo(proxyLink) : undefined;
         const formatTitle = formatStreamTitle(
           `${name} | ${index === 0 ? "Phụ đề" : "Thuyết Minh"}`,

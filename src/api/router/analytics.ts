@@ -50,6 +50,8 @@ analytics.on(
   async (c, next) => {
     const { ip, origin, url, country, userAgent } = extractHeaderInfo(c);
     const key = hashMD5(`${ip}:${userAgent}`);
+    const config = c.req.param("configBase64");
+    const hideConfigUrl = url.replace(`/${config}`, "");
     const resource: ShortManifestResource | "api" = url.includes("/catalog")
       ? "catalog"
       : url.includes("/meta")
@@ -60,7 +62,7 @@ analytics.on(
             ? "subtitles"
             : "api";
     if (!visitors.has(key)) {
-      umami?.track({ ip, country, origin, userAgent });
+      umami?.track({ url: hideConfigUrl, ip, country, origin, userAgent });
     }
     visitors.add(key);
     setTimeout(

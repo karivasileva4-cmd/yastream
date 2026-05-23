@@ -1,8 +1,8 @@
 import { execSync } from "node:child_process";
-import { axiosGet } from "./axios.js";
-import { Logger } from "./logger.js";
 import { EStream } from "../db/schema/streams.js";
+import { axiosGet } from "./axios.js";
 import { handleError, ProbeInfoError } from "./error.js";
+import { Logger } from "./logger.js";
 
 const logger = new Logger("INFO");
 
@@ -29,7 +29,7 @@ interface ProbeInfo {
     bit_rate: number;
   };
 }
-export type QUALITY = "2160p" | "1080pHD" | "1080p" | "720p" | "480p";
+export type Quality = "2160p" | "1080pHD" | "1080p" | "720p" | "480p";
 
 export async function probeStreamInfo(
   url: string,
@@ -193,7 +193,7 @@ export function toQuality(resolution: Resolution) {
 }
 
 // 1080p -> 1980x1080, 720p -> 1280x720, 480p -> 854x480
-export function toResolution(quality: QUALITY): Resolution {
+export function toResolution(quality: Quality): Resolution {
   switch (quality) {
     case "2160p":
       return { width: 3840, height: 2160 };
@@ -210,9 +210,7 @@ export function toResolution(quality: QUALITY): Resolution {
 }
 
 export function parseInfo(stream: EStream) {
-  let info: StreamInfo = {
-    size: 0,
-  };
+  let info: StreamInfo = {};
   if (stream.size) info.size = parseFloat(stream.size);
   if (stream.duration) {
     info.hours = parseInt(stream.duration) / 60;

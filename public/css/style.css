@@ -17,8 +17,9 @@
   --md: 1rem;
   --lg: 1.5rem;
   --xl: 3rem;
+  --text-box: 3.2rem;
   --font-md: 0.9rem;
-  --accent: #E67C99;
+  --accent: #e67c99;
 
   --toggle-width: 44px;
   --toggle-height: 24px;
@@ -39,11 +40,12 @@ body {
 }
 
 .icon {
+  color: var(--foreground);
+  fill: var(--foreground);
   margin-left: 0.3rem;
-  margin-top: auto;
-  margin-bottom: auto;
+  vertical-align: -0.1rem;
   width: 1rem;
-  height: 1.1rem;
+  height: 1rem;
 }
 .logo {
   width: var(--lg);
@@ -93,6 +95,12 @@ body {
 .btn-secondary:hover {
   background: #5a6268;
 }
+.torbox {
+  width: fit-content;
+  gap: var(--xs);
+  align-items: center;
+  display: inline-flex;
+}
 
 .container {
   background: var(--background);
@@ -137,6 +145,16 @@ p:first-child {
   margin-top: 0;
 }
 
+input[type="password"] {
+  font-size: 1.1rem;
+}
+input[type="text"]::placeholder {
+  font-size: 0.9rem; 
+}
+input[type="password"]::placeholder {
+  font-size: 0.9rem; 
+}
+
 /* Configure */
 .configure {
   background-color: var(--secondary-background);
@@ -162,6 +180,33 @@ p:first-child {
 .config-item label {
   cursor: pointer;
   margin-left: var(--xs);
+  margin-top: auto;
+  margin-bottom: auto;
+  min-width: 5rem;
+}
+.input-text,
+.input-sensitive {
+  height: var(--text-box);
+  min-width: 10rem;
+  max-width: 21rem;
+  width: 85%;
+  background: var(--background);
+  color: var(--foreground);
+  border: 2px solid var(--foreground);
+  border-radius: var(--rounded-md);
+  padding: var(--xs);
+  display: flex;
+  justify-content: space-between;
+}
+.input-text input,
+.input-sensitive input {
+  width: 100%;
+  margin: auto;
+  margin-left: 0;
+  background: var(--background);
+  color: var(--foreground);
+  border: none;
+  height: 100%;
 }
 
 input[type="checkbox"].switch {
@@ -269,9 +314,18 @@ input[type="checkbox"].switch:focus-visible {
 }
 .tooltip {
   position: relative;
-  text-decoration: dotted underline;
+  /* text-decoration: dotted underline; */
   margin-right: auto;
-  margin-left: var(--xs);
+  margin-left: var(--xxs);
+}
+.tooltip .icon {
+  display: inline;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -0.4rem;
+  margin: 0 auto;
+  width: var(--lg);
+  height: var(--lg);
 }
 
 .tooltip:hover .tooltip-text {
@@ -328,11 +382,12 @@ input[type="checkbox"].switch:focus-visible {
   margin-top: 1rem;
   border: 2px solid var(--foreground);
   border-radius: 0.625rem;
-  padding: 0.2rem;
+  padding: var(--xs);
   display: flex;
+  height: var(--text-box);
 }
 .manifest-url {
-  margin: auto var(--sm);
+  margin: auto;
   overflow: scroll;
   width: 90%;
   text-wrap: nowrap;
@@ -346,17 +401,21 @@ input[type="checkbox"].switch:focus-visible {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+.hide-show-btn,
 .copy-btn {
   background: color-mix(in srgb, var(--accent), transparent 60%);
+  height: 100%;
+  margin-left: var(--xs);
   border: 2px solid var(--accent);
   border-radius: var(--rounded-md);
-  padding: 0.5rem 15px;
-  margin: 0.2rem;
+  padding: var(--xxs) var(--xs);
   cursor: pointer;
   font-size: 0.9em;
   transition: background 0.3s ease;
   white-space: nowrap;
 }
+.hide-show-btn:hover,
 .copy-btn:hover {
   background: color-mix(in srgb, var(--accent), transparent 40%);
 }

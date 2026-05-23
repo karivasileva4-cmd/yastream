@@ -423,6 +423,7 @@ export class OnetouchtvScrapper extends BaseProvider {
     content: ContentDetail,
     config: UserConfig,
   ): Promise<Stream[]> {
+    this.logger.log(`Stream | ${content.title} ${content.id}`);
     try {
       const { title, type, year, season, episode, onetouchtvId, id } = content;
       const streamKey = `streams:${type}:${this.name}:${id}:${season}:${episode}:${config.info}`;
@@ -634,18 +635,29 @@ export class OnetouchtvScrapper extends BaseProvider {
     });
     if (subtitles.length > 0) {
       cache.set(subtitleKey, subtitles, 4 * 60 * 60 * 1000);
-      upsertSubtitles(
-        await Promise.all(
-          subtitles.map(async (subtitle) => ({
+      const subtitleRows = await Promise.all(
+        subtitles.map(async (subtitle) => {
+          let subtitleContent: string | null = null;
+          try {
+            subtitleContent = await axiosGet<string>(subtitle.url);
+          } catch (error) {
+            handleError(
+              error,
+              this.logger,
+              `Failed to get subtitle ${subtitle.url}`,
+            );
+          }
+          return {
             ...subtitle,
             id: uuidv7(),
             season: "1",
             episode: episode?.toString() ?? "1",
             providerContentId: `${this.name}:${id}`,
-            subtitle: await axiosGet<string>(subtitle.url),
-          })),
-        ),
+            subtitle: subtitleContent,
+          };
+        }),
       );
+      upsertSubtitles(subtitleRows);
     }
     return subtitles;
   }

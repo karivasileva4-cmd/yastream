@@ -1,6 +1,6 @@
 {
   "name": "yastream",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Yet Another Stream. Stream asian dramas, series and movies directly with multiple providers. Support catalogs with country selection. Powered by TMDB and TVDB for metadata",
   "scripts": {
     "start": "node --env-file=.env dist/server.js",
@@ -14,7 +14,8 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:genkey": "tsc && node dist/db/key/auth-key.js"
   },
   "type": "module",
   "engines": {
@@ -52,12 +53,15 @@
     "@types/probe-image-size": "^7.2.5",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
+    "jose": "^6.2.3",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3"
+      "better-sqlite3",
+      "esbuild",
+      "puppeteer"
     ]
   }
 }

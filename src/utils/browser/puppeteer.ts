@@ -4,7 +4,7 @@
 import { load } from "cheerio";
 import puppeteer, { CookieData, Handler, Page } from "puppeteer";
 import { OUO_HOSTS } from "../../source/web/ouo.js";
-import { UA } from "../axios.js";
+import { USER_AGENT } from "../constant.js";
 import { ENV } from "../env.js";
 import { handleError } from "../error.js";
 import { Logger } from "../logger.js";
@@ -36,6 +36,36 @@ function parseFormFields(html: string, formSelector: string): string {
 }
 
 const PAGE_WAIT_MS = 5000;
+export async function getPuppeteerRequest(
+  url: string,
+  cookies?: any,
+  userAgent?: string,
+) {
+  const browser = await getBrowser();
+  browser.setCookie(...(cookies || []));
+  const page = await browser.newPage();
+  let html = "";
+  page.setUserAgent({ userAgent: userAgent || USER_AGENT });
+  try {
+    await page.goto(url, {
+      waitUntil: "networkidle0",
+      timeout: 5000,
+    });
+    html = await page.content();
+    // await page.evaluate(() => {
+    //   const script = document.querySelector("script");
+    //   if (!script) return;
+    //   script();
+    // });
+    // await page.waitForSelector('div[class^="z_81fjv"]');
+  } catch (error) {
+    console.error(error);
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+  return html;
+}
 // export async function getPuppeteerRequest(
 //   url: string,
 //   cookies?: any,
@@ -92,105 +122,106 @@ const PAGE_WAIT_MS = 5000;
 //   await browser.close();
 //   return { content, cookies };
 // }
+const NOT_FINAL_HOSTS = [
+  "sl.buisthainan.com",
+  "mkvdrama",
+  "send",
+  "cloudflare",
+  "google",
+  "gstatic",
+  "jsdelivr",
+  "turnstile",
+];
 
-// export async function postRedirectedUrlCDP(
-//   targetUrl: string,
-//   postData?: string,
-//   cookies?: CookieData[],
-//   userAgent?: string,
-//   formSelector?: string,
-// ) {
-//   let redirectedUrl = "";
-//   const browser = await getBrowser();
-//   if (cookies) browser.setCookie(...cookies);
-//   try {
-//     const page: Page = await browser.newPage();
-//     page.setUserAgent({ userAgent: userAgent || UA });
-//     await page.setRequestInterception(true);
-//     const client = await page.createCDPSession();
-//     await client.send("Network.enable");
+export async function postRedirectedUrlCDP(
+  targetUrl: string,
+  postData?: string,
+  cookies?: CookieData[],
+  userAgent?: string,
+  formSelector?: string,
+) {
+  let redirectedUrl = "";
+  const browser = await getBrowser();
+  if (cookies) browser.setCookie(...cookies);
+  try {
+    const page: Page = await browser.newPage();
+    page.setUserAgent({ userAgent: userAgent || USER_AGENT });
+    await page.setRequestInterception(true);
+    const client = await page.createCDPSession();
+    await client.send("Network.enable");
 
-//     let formActionUrl = targetUrl;
-//     if (formSelector && !postData) {
-//       await page.goto(targetUrl, {
-//         waitUntil: "domcontentloaded",
-//         timeout: 10000,
-//       });
-//       const html = await page.content();
-//       const $ = load(html);
-//       formActionUrl = $(formSelector).attr("action") || targetUrl;
-//       postData = parseFormFields(html, formSelector);
-//       logger.log(`form action ${formActionUrl}`);
-//       logger.log(`parsed postData ${postData?.substring(0, 80)}`);
-//     }
+    let formActionUrl = targetUrl;
+    if (formSelector && !postData) {
+      await page.goto(targetUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 10000,
+      });
+      const html = await page.content();
+      const $ = load(html);
+      formActionUrl = $(formSelector).attr("action") || targetUrl;
+      postData = parseFormFields(html, formSelector);
+      logger.trace(`form action ${formActionUrl}`);
+      logger.trace(`parsed postData ${postData?.substring(0, 80)}`);
+    }
 
-//     // for (const link of cLinks) {
-//     let redirectLocation: string | undefined;
-//     const changeToPost: Handler<any> = (interceptRequest) => {
-//       var data = {
-//         method: "POST",
-//         postData: postData,
-//       };
-//       interceptRequest.continue(data);
-//     };
-//     const onRequestSent: Handler<any> = (params) => {
-//       // Capture redirect response Location header
-//       logger.log(`onRequestSent params ${params.documentURL}`);
-//       // Also capture any request to an external domain (follow-up after redirect)
-//       // Request modified... finish sending!
-//       const reqUrl = params.request?.url || "";
+    // for (const link of cLinks) {
+    let redirectLocation: string | undefined;
+    const changeToPost: Handler<any> = (interceptRequest) => {
+      var data = {
+        method: "POST",
+        postData: postData,
+      };
+      interceptRequest.continue(data);
+    };
+    const onRequestSent: Handler<any> = (params) => {
+      // Capture redirect response Location header
+      logger.trace(`onRequestSent params ${params.documentURL}`);
+      // Also capture any request to an external domain (follow-up after redirect)
+      // Request modified... finish sending!
+      const reqUrl = params.request?.url || "";
 
-//       logger.log(`reqUrl ${reqUrl}`);
-//       if (
-//         reqUrl.startsWith("http") &&
-//         !reqUrl.includes(MKVDRAMA_HOST) &&
-//         !reqUrl.includes("cloudflare") &&
-//         !reqUrl.includes("google") &&
-//         !reqUrl.includes("gstatic") &&
-//         !reqUrl.includes("jsdelivr") &&
-//         !reqUrl.includes("turnstile")
-//       ) {
-//         logger.log(`redirectLocation ${redirectLocation}`);
-//         if (!redirectLocation) {
-//           redirectLocation = reqUrl.split("?__cf_chl")[0];
-//           if (redirectLocation) redirectedUrl = redirectLocation;
-//         }
-//       }
-//       return;
-//     };
+      logger.trace(`reqUrl ${reqUrl}`);
+      if (
+        reqUrl.startsWith("http") &&
+        !NOT_FINAL_HOSTS.some((host) => reqUrl.includes(host))
+      ) {
+        if (!redirectLocation) {
+          redirectLocation = reqUrl.split("?__cf_chl")[0];
+          if (redirectLocation) redirectedUrl = redirectLocation;
+        }
+      }
+      return;
+    };
 
-//     page.on("request", changeToPost);
-//     client.on("Network.requestWillBeSent", onRequestSent);
-//     logger.log(`[MKVDrama/Browser] on request: ${formActionUrl}`);
-//     try {
-//       // Trigger a navigation to the _c/ URL via fetch (it will fail due to CORS,
-//       // but CDP captures the redirect before the CORS error)
-//       page.goto(formActionUrl, {
-//         waitUntil: "domcontentloaded",
-//         timeout: 10000,
-//       });
-//       // Brief wait for CDP events to arrive
-//       await new Promise((r) => setTimeout(r, 500));
-//     } catch {}
-//     // client.off("Network.requestWillBeSent", onRequestSent);
-//     logger.log(`[MKVDrama/Browser] off request: ${targetUrl}`);
-//     if (redirectLocation) {
-//       logger.log(
-//         `[MKVDrama/Browser] _c resolved (CDP): ${targetUrl.split("/_c/")[2]?.substring(0, 12)} → ${redirectLocation.substring(0, 80)}`,
-//       );
-//       return redirectLocation;
-//     }
-//     await page.close();
-
-//     // await client.detach().catch(() => {});
-//   } catch (cdpErr) {
-//     logger.log(`[MKVDrama/Browser] CDP resolution failed: ${cdpErr}`);
-//     // Keep remaining unresolved _c/ links as-is
-//   } finally {
-//     await browser.disconnect();
-//   }
-//   return redirectedUrl;
-// }
+    page.on("request", changeToPost);
+    client.on("Network.requestWillBeSent", onRequestSent);
+    logger.trace(`on request: ${formActionUrl}`);
+    try {
+      // Trigger a navigation to the _c/ URL via fetch (it will fail due to CORS,
+      // but CDP captures the redirect before the CORS error)
+      await page.goto(formActionUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 10000,
+      });
+      // // Brief wait for CDP events to arrive
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (error) {
+      handleError(error, logger, `Fail post CDP request ${targetUrl}`);
+    }
+    // client.off("Network.requestWillBeSent", onRequestSent);
+    logger.trace(`off request: ${targetUrl}`);
+    if (redirectLocation) {
+      logger.log(`redirected (CDP): ${targetUrl} → ${redirectLocation}`);
+      return redirectLocation;
+    }
+    await page.close();
+  } catch (cdpErr) {
+    logger.error(`CDP resolution failed: ${cdpErr}`);
+  } finally {
+    await browser.disconnect();
+  }
+  return redirectedUrl;
+}
 
 /**
  * Turn on capture network events and get redirected url
@@ -209,7 +240,7 @@ export async function getRedirectedUrlCDP(
   if (cookies) browser.setCookie(...cookies);
   try {
     const page: Page = await browser.newPage();
-    page.setUserAgent({ userAgent: userAgent || UA });
+    page.setUserAgent({ userAgent: userAgent || USER_AGENT });
     const client = await page.createCDPSession();
     await client.send("Network.enable");
     let redirectLocation: string | undefined;
@@ -221,12 +252,7 @@ export async function getRedirectedUrlCDP(
       logger.trace(`reqUrl ${reqUrl}`);
       if (
         reqUrl.startsWith("http") &&
-        !reqUrl.includes("mkvdrama") &&
-        !reqUrl.includes("cloudflare") &&
-        !reqUrl.includes("google") &&
-        !reqUrl.includes("gstatic") &&
-        !reqUrl.includes("jsdelivr") &&
-        !reqUrl.includes("turnstile")
+        !NOT_FINAL_HOSTS.some((host) => reqUrl.includes(host))
       ) {
         logger.trace(`redirectLocation ${redirectLocation}`);
         if (!redirectLocation) {
@@ -250,8 +276,6 @@ export async function getRedirectedUrlCDP(
         waitUntil: "load",
         timeout: ENV.PUPPETEER_TIMEOUT_MS,
       });
-      // const content = await page.content();
-      // logger.log(`CDP content ${content}`);
       // Brief wait for CDP events to arrive
       await new Promise((r) => setTimeout(r, 500));
     } catch (error) {
@@ -260,7 +284,7 @@ export async function getRedirectedUrlCDP(
     client.off("Network.requestWillBeSent", onRequestSent);
     logger.trace(`off request: ${targetUrl}`);
     if (redirectLocation) {
-      logger.log(`_c resolved (CDP): ${targetUrl} → ${redirectLocation}`);
+      logger.log(`redirected (CDP): ${targetUrl} → ${redirectLocation}`);
       return redirectLocation;
     }
 

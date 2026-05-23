@@ -81,6 +81,11 @@ const apiRouteConfigs: ApiRouteConfig[] = [
     limiter: getLimiter(REDIRECT),
     handler: redirectApiHandler,
   },
+  {
+    route: `/:configBase64/${REDIRECT}/:args{.*}`,
+    limiter: getLimiter(REDIRECT),
+    handler: redirectApiHandler,
+  },
 ];
 apiRouteConfigs.forEach((config) => {
   api.use(config.route, config.limiter);

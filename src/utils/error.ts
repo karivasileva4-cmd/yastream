@@ -60,6 +60,13 @@ export class TorboxError extends Error {
     this.name = name;
   }
 }
+export class TorboxAuthError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.TORBOX;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
 
 // OUO
 export class OuoError extends Error {
@@ -74,6 +81,22 @@ export class OuoError extends Error {
 export class ViewcrateError extends Error {
   constructor(message: string) {
     const name = ErrorName.VIEWCRATE;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+// FILECRYPT
+export class FilecryptError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.FILECRYPT;
+    super(`${name} | ${message}`);
+    this.name = name;
+  }
+}
+// DECRYPTIT
+export class DecryptitError extends Error {
+  constructor(message: string) {
+    const name = ErrorName.DECRYPTIT;
     super(`${name} | ${message}`);
     this.name = name;
   }
@@ -157,6 +180,10 @@ enum ErrorName {
   OUO = "[OUO] Error",
   // VIEWCRATE
   VIEWCRATE = "[VIEWCRATE] Error",
+  // FILECRYPT
+  FILECRYPT = "[FILECRYPT] Error",
+  // DECRYPTIT
+  DECRYPTIT = "[DECRYPTIT] Error",
   // KISSKH
   KISSKH_DETAIL = "[KISSKH] Detail Error",
   KISSKH_EPISODE = "[KISSKH] Episode Error",
@@ -192,6 +219,8 @@ export function handleError(
     case error instanceof MkvdramaError:
     case error instanceof OuoError:
     case error instanceof ViewcrateError:
+    case error instanceof FilecryptError:
+    case error instanceof DecryptitError:
       logger.error(`${message} | ${error.message}`);
       return error;
     case error instanceof Error:

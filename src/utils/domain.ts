@@ -17,3 +17,4 @@ export function getOrigin() {
     return `https://${getHost()}`;
   }
 }
+

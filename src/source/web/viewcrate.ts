@@ -1,6 +1,10 @@
+import * as cheerio from "cheerio";
 import * as crypto from "crypto";
-import { axiosPost } from "../../utils/axios.js";
+import { axiosGet, axiosPost } from "../../utils/axios.js";
+import { getFlareSolverr } from "../../utils/browser/flaresolverr.js";
 import { ViewcrateError } from "../../utils/error.js";
+import { EpisodeHoster, getHosterFromUrl, Hoster } from "../hoster/hoster.js";
+import { getUrlsFromDecryptit } from "./decryptit.js";
 
 interface ViewcrateCnl {
   crypted: string;
@@ -9,17 +13,69 @@ interface ViewcrateCnl {
 export const VIEWCRATE_HOST = "viewcrate.cc";
 export const VIEWCRATE_ORIGIN = `https://${VIEWCRATE_HOST}`;
 
+/** Sometimes miss links */
 export async function getUrlsFromViewcrate(url: string) {
   const publicId = new URL(url).pathname.split("/").pop();
   const viewcrateCryptUrl = `${VIEWCRATE_ORIGIN}/api/cnl_encrypt/${publicId}`;
-
-  // const cnlHtml = await postFlareSolverr(viewcrateCryptUrl, session, 0);
-  // if (!cnlHtml?.solution?.response) return [];
-  // const urls = getUrlsFromCnlHtml(cnlHtml.solution?.response);
   const cnlHtml = await axiosPost<ViewcrateCnl>(viewcrateCryptUrl);
   if (!cnlHtml) throw new ViewcrateError("No cnl html");
   const urls = getUrlsFromCnl(cnlHtml);
   return urls;
+}
+
+/** Has all links */
+export async function getUrlsFromViewcrateDlc(url: string) {
+  // need to load js to have episodes
+  // const html = await axiosGet<string>(url);
+  const response = await getFlareSolverr(url, "viewcrate", 2);
+  const html = response?.solution?.response;
+  if (!html) throw new ViewcrateError("No html");
+  if (html.toLowerCase().includes("protected content"))
+    throw new ViewcrateError("Protected content");
+  const $ = cheerio.load(html);
+  const link = $("a").attr("href");
+  if (!link) throw new ViewcrateError("No link");
+  const dlcUrl = new URL(link, VIEWCRATE_ORIGIN).toString();
+  const dlc = await axiosGet<string>(dlcUrl);
+  if (!dlc) throw new ViewcrateError("No dlc");
+  const urls = await getUrlsFromDecryptit(dlc);
+  const episodes = getEpisodeHosters(html);
+  return { urls, episodes };
+}
+
+export function getEpisodeHosters(html: string): EpisodeHoster[] {
+  const $ = cheerio.load(html);
+  const $episodes = $("main > div").eq(2).children();
+  const episodes: EpisodeHoster[] = [];
+  $episodes.each((_, episode) => {
+    const $episode = $(episode);
+    const episodeTitle = $episode.find("h2").text();
+    const episodeHosters = $episode.find(`div[class^="y_"]`);
+    const data: { hoster: Hoster; size: string }[] = [];
+    episodeHosters.each((_, hoster) => {
+      const $hoster = $(hoster);
+      const sizeText = $hoster.find("span").last().text();
+      let size = "";
+      if (sizeText.includes("GB")) {
+        size = sizeText.replace(/GB/, "").trim();
+      } else if (sizeText.includes("MB")) {
+        size = (parseFloat(sizeText.replace(/MB/, "").trim()) / 1024).toFixed(
+          2,
+        );
+      }
+      for (const [key, value] of Object.entries($hoster.attr() || {})) {
+        if (key.startsWith("data-") && value) {
+          const hoster = getHosterFromUrl(value);
+          if (hoster) data.push({ size, hoster });
+        }
+      }
+    });
+    episodes.push({
+      ep: parseInt(episodeTitle.replace(/.*E/, "")),
+      data: data,
+    });
+  });
+  return episodes;
 }
 
 export function parseJkAndCryptedFromHtml(html: string): {
@@ -55,12 +111,10 @@ async function getUrlsFromCnl(viewcrateCnl: ViewcrateCnl) {
 
 async function decryptCnl(jk: string, crypted: string) {
   const key = Buffer.from(jk, "hex");
-  const encrypted = Buffer.from(crypted, "base64");
-  const decipher = crypto.createDecipheriv(
-    "aes-128-cbc",
-    key,
-    Buffer.alloc(16, 0),
-  );
+  const combined = Buffer.from(crypted, "base64");
+  const iv = combined.subarray(0, 16);
+  const encrypted = combined.subarray(16);
+  const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
   decipher.setAutoPadding(false);
   const decrypted = Buffer.concat([
     decipher.update(encrypted),

@@ -14,7 +14,7 @@ export async function subtitleApiHandler(c: Context) {
       return c.text("No subtitles found", 404);
     }
     return c.text(subtitle.subtitle, 200, {
-      "Content-Type": "text/vtt",
+      "Content-Type": "text/vtt, charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": `max-age=${TTL_SECS.stream}, public`,
     });

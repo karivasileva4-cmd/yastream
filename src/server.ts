@@ -1,11 +1,11 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import analytics from "./api/router/analytics.js";
 import api from "./api/router/api.js";
 import dashboard from "./api/router/dashboard.js";
 import publicRouter from "./api/router/public.js";
 import stremio from "./api/router/stremio.js";
-import analytics from "./api/router/analytics.js";
 import { initMigrations } from "./db/drizzle.js";
 import { buildManifest } from "./lib/manifest.js";
 import { startCronJob } from "./service/job/job.js";
@@ -60,11 +60,11 @@ try {
 }
 
 // Global catch to prevent crashes
-process.on("unhandledRejection", (reason, promise) => {
-  logger.error(`CRASH PREVENTED | Promise: ${promise}, Reason: ${reason}`);
+process.on("unhandledRejection", (reason, _) => {
+  logger.error(`UNHANDLED_REJECTION | Reason: ${reason}`);
 });
 process.on("uncaughtException", (err) => {
-  logger.error(`CRASH PREVENTED ${err}`);
+  logger.error(`UNCAUGHT_EXCEPTION | ${err}`);
 });
 process.on("SIGTERM", () => {
   logger.log("SIGTERM");

@@ -15,7 +15,7 @@ export async function getOuoFinalUrl(url: string, session: string = "ouo") {
   const id = getOuoId(url);
   if (!id) throw new OuoError("No id found");
   const dbOuo = await getOuo(id);
-  if (dbOuo) {
+  if (dbOuo && dbOuo.redirectedUrl) {
     return dbOuo.redirectedUrl;
   }
   logger.log(`Get final url with flaresolverr | ${url}`);

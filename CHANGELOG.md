@@ -1,3 +1,16 @@
+# v0.9.0 2026-05-23
+
+- Add TorBox integration for DDL stream:
+  - Sometimes file may not be available or deleted from hoster, check from mkvdrama again to make sure
+  - Cached stream: [TB+]
+  - Not cached stream [TB] click will download stream to TorBox if hoster file is available with no password
+- Add Mediaflow-proxy integration for stream from Send.now
+- Mkvdrama:
+  - Support most flow to get streams (ouo/direct -> viewcrate/filecrypt -> pixeldrain/send/mega/gofile)
+  - Password protected content not yet implemented
+  - Add size to stream
+  - Some episode may be in wrong order (dcrypt.it get the wrong episodes order from dlc, let me know to fix it)
+
 # v0.8.0 2026-05-10
 
 - Add mkvdrama, only support ouo -> viewcrate -> pixeldrain flow

@@ -29,6 +29,18 @@ export default defineConfig({
           include: ["./src/service/**/*.test.ts"],
         },
       },
+      {
+        test: {
+          name: "web",
+          include: ["./src/source/web/**/*.test.ts"],
+        },
+      },
+      {
+        test: {
+          name: "debrid",
+          include: ["./src/source/debrid/**/*.test.ts"],
+        },
+      },
     ],
     environment: "node",
     // include: ["src/**/*.test.ts"],

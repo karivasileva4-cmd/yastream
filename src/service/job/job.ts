@@ -23,6 +23,7 @@ export interface JobMkvdrama {
 const logger = new Logger("JOB");
 
 export function addJob(job: EJobInsert) {
+  logger.log(`Add ${job.id}`);
   insertJobs([job]);
 }
 
@@ -56,12 +57,13 @@ async function runCronJob() {
   switch (job.type) {
     case JOB_TYPE.MKVDRAMA_STREAM:
       try {
-        logger.log(`Running job ${job.id}`);
+        logger.log(`Running ${job.id}`);
         await mkvdrama.runMkvdramaStream(job);
       } catch (error) {
         handleError(error, logger, `Failed to run ${job.id}`);
         upsertJob({ ...job, status: JOB_STATUS.FAILED });
-        ntfy("yastream job failed", `Job ${job.id} failed`);
+        ntfy("yastream job failed", `${job.id}`);
+        deleteJob(job.id);
         break;
       }
       deleteJob(job.id);
@@ -71,7 +73,7 @@ async function runCronJob() {
       break;
   }
   const end = Date.now();
-  logger.log(`Job ${job.id} took ${end - start}ms`);
+  logger.log(`${job.id} took ${end - start}ms`);
 }
 
 export async function getJobQueue() {

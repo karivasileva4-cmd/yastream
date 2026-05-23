@@ -22,9 +22,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(55913),
   CACHE_SIZE_MB: z.coerce.number().default(100),
   // Retry configuration
-  RETRY_ATTEMPTS: z.coerce.number().default(4),
-  RETRY_TIMEOUT_MS: z.coerce.number().default(15000),
-  RETRY_DELAY_MS: z.coerce.number().default(4000),
+  RETRY_ATTEMPTS: z.coerce.number().default(2),
+  RETRY_TIMEOUT_MS: z.coerce.number().default(7000),
+  RETRY_DELAY_MS: z.coerce.number().default(5000),
   RETRY_JITTER_MS: z.coerce.number().default(500),
   LOG_LEVEL: z
     .enum(["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "NONE"])
@@ -53,6 +53,12 @@ const envSchema = z.object({
   // Database (optional - only used when DATABASE_ENABLED is true)
   DATABASE_ENABLED: z.coerce.boolean().default(false),
   DATABASE_URL: z.string().default("data/yastream.db"),
+  DATABASE_READ_ONLY_TOKEN: z
+    .string()
+    .default(
+      "eyJhbGciOiJFZDI1NTE5In0.eyJhIjoicm8iLCJpYXQiOjE3Nzg2MjA5MDcsImV4cCI6MTgxMDE3ODUwN30.nnfg0twQ0xFf4HwOlNiovBgoplNUYwMcAMr1uWoLhp-q0IdD7-9LZQ629fF3WHil_tci1nbHayp8s0oCiPbZDw",
+    ),
+  DABASE_READ_WRITE_TOKEN: z.string().default(""),
 
   // FlareSolverr
   FLARESOLVERR_URL: z.string().default(""),
@@ -71,6 +77,9 @@ const envSchema = z.object({
 
   // Debrid service
   TORBOX_TIMEOUT_MS: z.coerce.number().default(10000),
+
+  // Hoster
+  GOFILE_TOKEN: z.string().default(""),
 
   // Kisskh domains
   KISSKH_URLS: z
