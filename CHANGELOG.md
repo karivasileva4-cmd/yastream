@@ -10,6 +10,8 @@
   - Password protected content not yet implemented
   - Add size to stream
   - Some episode may be in wrong order (dcrypt.it get the wrong episodes order from dlc, let me know to fix it)
+- Kisskh:
+  - Default timeout to 7 seconds with 2 retry
 
 # v0.8.0 2026-05-10
 
