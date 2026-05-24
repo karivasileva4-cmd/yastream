@@ -8,7 +8,8 @@ describe("Filecrypt", () => {
   it("get urls from filecrypt", async () => {
     // const url = "https://www.filecrypt.cc/Container/ECD932257A.html";
     // const url = "https://www.filecrypt.cc/Container/4F5BF66C00.html";
-    const url = "https://filecrypt.cc/Container/39991D10D3.html";
+    // const url = "https://filecrypt.cc/Container/39991D10D3.html";
+    const url = "https://www.filecrypt.cc/Container/5888BE751E.html";
     const episodes = await getUrlsFromFilecrypt(url);
     console.log("episodes", JSON.stringify(episodes, null, 2));
     expect(episodes).not.toBeNull();

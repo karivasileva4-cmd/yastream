@@ -2,9 +2,9 @@ import * as cheerio from "cheerio";
 import { axiosGet } from "../../utils/axios.js";
 import { getFlareSolverr } from "../../utils/browser/flaresolverr.js";
 import { FilecryptError, handleError } from "../../utils/error.js";
+import { Logger } from "../../utils/logger.js";
 import { EpisodeHoster, getHosterFromUrl, Hoster } from "../hoster/hoster.js";
 import { getUrlsFromDecryptit } from "./decryptit.js";
-import { Logger } from "../../utils/logger.js";
 
 export const FILECRYPT_HOST = "filecrypt.cc";
 export const FILECRYPT_ORIGIN = `https://${FILECRYPT_HOST}`;
@@ -44,10 +44,10 @@ export function getEpisodeHosters(html: string): EpisodeHoster[] {
     const title = $file.find("td").eq(1).text();
     let epString = "";
     try {
-      const epRegex = /.*S(\d+)E(\d+)/;
+      const epRegex = /.*E(\d+)/;
       const match = title.match(epRegex);
       if (!match) throw new FilecryptError("No ep found");
-      const [regex, season, ep] = match;
+      const [regex, ep] = match;
       if (!ep) throw new FilecryptError("No ep found");
       epString = ep;
     } catch (error) {
