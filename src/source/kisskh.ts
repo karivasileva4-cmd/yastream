@@ -498,6 +498,7 @@ class KissKHScraperr extends BaseProvider {
 
   async getSubtitles(content: ContentDetail): Promise<Subtitle[]> {
     const subtitleKey = `subtitles:${content.type}:${this.name}:${content.id}:${content.season}:${content.episode}`;
+    let kisskhId = content.kisskhId ? parseInt(content.kisskhId) : undefined;
     let cacheSubtitles = cache.get(subtitleKey);
     if (cacheSubtitles) return cacheSubtitles;
     const savedSubtitles = await SubtitleService.getSubtitlesFromDb(
@@ -510,18 +511,21 @@ class KissKHScraperr extends BaseProvider {
       cache.set(subtitleKey, savedSubtitles, TTL_MS.stream);
       return savedSubtitles;
     }
-    const search = await this.searchContent(
-      content.title,
-      content.type,
-      content.year,
-      content.season,
-      true,
-      content.altTitle,
-    );
-    if (!search[0]) return [];
-    const episodeData = await this._getEpisode(search[0]?.id, content.episode);
+    if (!kisskhId) {
+      const search = await this.searchContent(
+        content.title,
+        content.type,
+        content.year,
+        content.season,
+        true,
+        content.altTitle,
+      );
+      if (!search[0]) return [];
+      kisskhId = search[0]?.id;
+    }
+    const episodeData = await this._getEpisode(kisskhId, content.episode);
     const episodeId = episodeData.episodeId;
-    const subtitles = this._getSubtitles(episodeId);
+    const subtitles = this._getSubtitles(episodeId, kisskhId, content.episode);
     return subtitles;
   }
 
@@ -598,32 +602,6 @@ class KissKHScraperr extends BaseProvider {
     if (stream.Video.includes(RATE_LIMIT_DESCRIPTION))
       throw new RateLimitError(content.title);
     const url = this._fixUrl(stream.Video);
-    const subtitleKey = `subtitles:${type}:${this.name}:${id}:${season}:${episode}`;
-    // Handle subtitles
-    let subtitles: Subtitle[] | null = cache.get(subtitleKey);
-    if (subtitles) cache.set(subtitleKey, subtitles);
-    else {
-      subtitles = await this._getSubtitles(episodeId);
-      if (subtitles.length > 0) cache.set(subtitleKey, subtitles);
-    }
-    if (subtitles) {
-      const subtitleRows: Omit<ESubtitleInsert, "createdAt">[] =
-        await Promise.all(
-          subtitles.map(async (subtitle) => {
-            const subtitleRow: Omit<ESubtitleInsert, "createdAt"> = {
-              ...subtitle,
-              id: uuidv7(),
-              providerContentId: `${this.name}:${kisskhId}`,
-              // season: season?.toString() ?? "1",
-              season: "1",
-              episode: episode?.toString() ?? "1",
-              subtitle: await axiosGet<string>(subtitle.url),
-            };
-            return subtitleRow;
-          }),
-        );
-      upsertSubtitles(subtitleRows);
-    }
     const info = config.info ? await probeStreamInfo(url) : undefined;
     const formatTitle = formatStreamTitle(title, year, season, episode, info);
     const streamDatas: Stream[] = [
@@ -785,29 +763,57 @@ class KissKHScraperr extends BaseProvider {
     }
   }
 
-  private async _getSubtitles(episodeId: string): Promise<Subtitle[]> {
+  private async _getSubtitles(
+    episodeId: string,
+    kisskhId: number,
+    episode?: number,
+  ): Promise<Subtitle[]> {
     const token = await this._getToken(episodeId, this.subGuid);
     const subtitleUrl = this.getSubUrl().replace("{id}", episodeId) + token;
     this.logger.log(`GET subtitles | ${subtitleUrl}`);
     const subtitleDatas = await axiosGet<SubResponse[]>(subtitleUrl);
     if (!subtitleDatas) return [];
-    const subtitles: Subtitle[] = [];
-    for (const [index, subtitleData] of subtitleDatas.entries()) {
-      const lang = iso639FromCountryCode(subtitleData.land as CountryCode);
-      const src = subtitleData.src;
-      const subtitle: Subtitle = {
-        id: `${this.name}-${index.toString()}`,
-        lang: lang,
-        url: src,
-        label: `${this.name}`,
-      };
-      if (this._needsDecryption(src)) {
-        // set to global cache
-        getSetDecryptedSubtitle(src);
-        const url = this._createSubtitleUrl(src);
-        subtitle.url = url;
-      }
-      subtitles.push(subtitle);
+    const decryptedSubtitleMap = new Map<string, string>();
+    const subtitles: Subtitle[] = await Promise.all(
+      subtitleDatas.entries().map(async ([index, subtitleData]) => {
+        const lang = iso639FromCountryCode(subtitleData.land as CountryCode);
+        const src = subtitleData.src;
+        const subtitle: Subtitle = {
+          id: `${this.name}-${index.toString()}`,
+          lang: lang,
+          url: src,
+          label: `${this.name}`,
+        };
+        if (this._needsDecryption(src)) {
+          // set to global cache
+          const decryptedSubtitle = await getSetDecryptedSubtitle(src);
+          if (decryptedSubtitle) {
+            subtitle.url = this._createSubtitleUrl(src);
+            decryptedSubtitleMap.set(subtitle.url, decryptedSubtitle);
+          }
+        }
+        return subtitle;
+      }),
+    );
+    if (subtitles.length > 0) {
+      const subtitleRows = await Promise.all(
+        subtitles.map(async (subtitle) => {
+          const subtitleRow: Omit<ESubtitleInsert, "createdAt"> = {
+            ...subtitle,
+            id: uuidv7(),
+            providerContentId: `${this.name}:${kisskhId}`,
+            season: "1",
+            episode: episode?.toString() ?? "1",
+          };
+          if (!this._needsDecryption(subtitle.url)) {
+            subtitleRow.subtitle = await getSetDecryptedSubtitle(subtitle.url);
+          } else {
+            subtitleRow.subtitle = decryptedSubtitleMap.get(subtitle.url);
+          }
+          return subtitleRow;
+        }),
+      );
+      upsertSubtitles(subtitleRows);
     }
     this.logger.log(`Subtitles found | ${subtitles.length}`);
     return subtitles;

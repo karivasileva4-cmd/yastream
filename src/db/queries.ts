@@ -317,6 +317,18 @@ export async function upsertSubtitles(
           subtitle: sql.raw(`excluded.${subtitles.subtitle.name}`),
           ttl: sql.raw(`excluded.${subtitles.ttl.name}`),
         },
+      })
+      .onConflictDoUpdate({
+        target: [
+          subtitles.providerContentId,
+          subtitles.season,
+          subtitles.episode,
+          subtitles.lang,
+        ],
+        set: {
+          url: sql.raw(`excluded.${subtitles.url.name}`),
+          createdAt: sql.raw(`excluded.${subtitles.createdAt.name}`),
+        },
       });
     const row = rows[0];
     logger.debug(

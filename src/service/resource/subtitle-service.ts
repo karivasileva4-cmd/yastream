@@ -7,6 +7,7 @@ import {
 import { API, SUBTITLES } from "../../utils/constant.js";
 import { getOrigin } from "../../utils/domain.js";
 import { cache } from "../../utils/cache.js";
+import { ONETOUCHTV_HOST } from "../../source/onetouchtv.js";
 
 class SubtitleService {
   static async getSubtitle(id: string) {
@@ -33,6 +34,12 @@ class SubtitleService {
         if (subtitle.subtitles.subtitle) {
           url = SubtitleService.getSubtitleUrl(subtitle.subtitles.id);
         }
+        const isExpired =
+          subtitle.subtitles.createdAt + (subtitle.subtitles.ttl ?? 0) <
+          Date.now();
+        if (url.includes(ONETOUCHTV_HOST) && isExpired) {
+          return;
+        }
         return {
           id: id,
           label: subtitle.provider_content.provider,
@@ -40,7 +47,7 @@ class SubtitleService {
           url: url,
         };
       });
-      return subtitles;
+      return subtitles.filter((subtitle) => subtitle !== undefined);
     }
     return [];
   }

@@ -9,6 +9,7 @@ import { streamApiHandler } from "../controller/streams-api.js";
 import { subtitleApiHandler } from "../controller/subtitles-api.js";
 import { extractHeaderInfo } from "./analytics.js";
 import { getRetryAfterText, RouteConfig } from "./stremio.js";
+import { ENV } from "../../utils/env.js";
 
 interface ApiRouteConfig extends RouteConfig {
   handler: (c: Context) => Promise<Response>;
@@ -18,12 +19,27 @@ const api = new Hono();
 const logger = new Logger("API");
 const getLimiter = (
   resource: string,
-  windowMs: number = 10 * 60 * 1000,
-  limit: number = 40,
+  windowMs: number = ENV.SUBTITLES_WINDOW_MINUTES * 60 * 1000,
+  limit: number = ENV.SUBTITLES_REQUEST_LIMIT,
 ) => {
+  switch (resource) {
+    case STREAMS:
+      windowMs = ENV.STREAM_WINDOW_MINUTES * 60 * 1000;
+      limit = ENV.STREAM_REQUEST_LIMIT;
+      break;
+    case SUBTITLES:
+      windowMs = ENV.SUBTITLES_WINDOW_MINUTES * 60 * 1000;
+      limit = ENV.SUBTITLES_REQUEST_LIMIT;
+      break;
+    case REDIRECT:
+      windowMs = ENV.REDIRECT_WINDOW_MINUTES * 60 * 1000;
+      limit = ENV.REDIRECT_REQUEST_LIMIT;
+      break;
+  }
+
   return rateLimiter({
-    windowMs: windowMs,
-    limit: limit,
+    windowMs,
+    limit,
     keyGenerator: (c) => {
       const { ip, userAgent } = extractHeaderInfo(c);
       const key = `${ip}:${userAgent}`;

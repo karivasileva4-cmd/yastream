@@ -32,7 +32,11 @@ function isEncrypted(line: string) {
 }
 
 function decrypt(data: string, key: Buffer, iv: Buffer): string {
-  const lines = data.split(/\r?\n/);
+  const normalizedData = data
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace('"', "");
+  const lines = normalizedData.split(/\r?\n/);
   const decryptedLines = lines
     .map((line) => {
       if (isEncrypted(line)) {

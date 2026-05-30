@@ -592,7 +592,8 @@ export class OnetouchtvScrapper extends BaseProvider {
   }
 
   async getSubtitles(content: ContentDetail): Promise<Subtitle[]> {
-    const { title, type, year, season, episode, id, onetouchtvId } = content;
+    const { title, type, year, season, episode, id } = content;
+    let onetouchtvId = content.onetouchtvId;
     const subtitleKey = `subtitles:${type}:${this.name}:${id}:${season}:${episode}`;
     const cachedSubtitles = cache.get(subtitleKey);
     if (cachedSubtitles) return cachedSubtitles;
@@ -606,15 +607,13 @@ export class OnetouchtvScrapper extends BaseProvider {
       cache.set(subtitleKey, savedSubtitles, TTL_MS.stream);
       return savedSubtitles;
     }
-    let detail = null;
-    if (onetouchtvId) {
-      detail = await this.getDetail(onetouchtvId);
-    } else {
+    if (!onetouchtvId) {
       const search = await this.searchTitle(title, year, season);
       const searchResult = search.result[0];
       if (!searchResult) return [];
-      detail = await this.getDetail(searchResult.id);
+      onetouchtvId = searchResult.id;
     }
+    const detail = await this.getDetail(onetouchtvId);
     const episodeId = detail.result.episodes[0]?.identifier || detail.result.id;
     const episodeData = detail.result.episodes.find(
       (ep) => ep.episode == episode?.toString(),
@@ -652,8 +651,9 @@ export class OnetouchtvScrapper extends BaseProvider {
             id: uuidv7(),
             season: "1",
             episode: episode?.toString() ?? "1",
-            providerContentId: `${this.name}:${id}`,
+            providerContentId: `${this.name}:${onetouchtvId}`,
             subtitle: subtitleContent,
+            ttl: TTL_MS.stream,
           };
         }),
       );

@@ -40,6 +40,8 @@ const envSchema = z.object({
   STREAM_REQUEST_LIMIT: z.coerce.number().default(10),
   SUBTITLES_WINDOW_MINUTES: z.coerce.number().default(10),
   SUBTITLES_REQUEST_LIMIT: z.coerce.number().default(10),
+  REDIRECT_WINDOW_MINUTES: z.coerce.number().default(180),
+  REDIRECT_REQUEST_LIMIT: z.coerce.number().default(200),
 
   // Analytics
   UMAMI_ENABLED: z.coerce.boolean().default(false),
