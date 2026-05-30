@@ -1,3 +1,7 @@
+# v0.9.1 2026-05-30
+
+- Fix: subtitle show more reliable
+
 # v0.9.0 2026-05-23
 
 - Add TorBox integration for DDL stream:
