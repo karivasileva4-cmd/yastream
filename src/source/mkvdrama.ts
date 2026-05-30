@@ -549,7 +549,11 @@ export default class MkvdramaScraper extends BaseProvider {
           }
         } catch (error) {
           handleError(error, this.logger, `Fail getUrlsFromViewcrateDlc`);
-          ntfy("yastream viewcrate/filecrypt failed", `${redirectedUrl}`);
+          ntfy(
+            "yastream viewcrate/filecrypt failed",
+            `${redirectedUrl}`,
+            "min",
+          );
           return;
         }
         const streamRows = hosterToStream(

@@ -62,7 +62,7 @@ async function runCronJob() {
       } catch (error) {
         handleError(error, logger, `Failed to run ${job.id}`);
         upsertJob({ ...job, status: JOB_STATUS.FAILED });
-        ntfy("yastream job failed", `${job.id}`);
+        ntfy("yastream job failed", `${job.id}`, "low");
         deleteJob(job.id);
         break;
       }

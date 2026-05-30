@@ -1,13 +1,18 @@
-import { ENV } from "../env.js";
 import axios from "axios";
+import { ENV } from "../env.js";
 
-export async function ntfy(title: string, message: string) {
+type Priority = "min" | "low" | "default" | "high" | "max";
+export async function ntfy(
+  title: string,
+  message: string,
+  priority: Priority = "default",
+) {
   if (ENV.NTFY_URL) {
     axios.post(
       ENV.NTFY_URL,
       `**${title}**
        ${message}`,
-      { headers: { Markdown: "yes" } },
+      { headers: { Markdown: "yes", Priority: priority } },
     );
   }
 }

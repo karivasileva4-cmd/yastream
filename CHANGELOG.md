@@ -1,5 +1,6 @@
 # v0.9.1 2026-05-30
 
+- Add: ntfy have priority
 - Fix: subtitle show more reliable
 
 # v0.9.0 2026-05-23
