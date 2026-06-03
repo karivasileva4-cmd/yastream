@@ -221,6 +221,7 @@ export function handleError(
     case error instanceof ViewcrateError:
     case error instanceof FilecryptError:
     case error instanceof DecryptitError:
+    case error instanceof FlareSolverrError:
       logger.error(`${message} | ${error.message}`);
       return error;
     case error instanceof Error:

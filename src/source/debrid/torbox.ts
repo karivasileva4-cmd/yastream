@@ -108,7 +108,7 @@ export async function createWebdl(
     const response = await axiosPost<TorboxResponse<TorboxCreateWebdlResponse>>(
       url,
       data.toString(),
-      { headers },
+      { headers, timeout: ENV.TORBOX_TIMEOUT_MS },
     );
     return response;
   } catch (error) {
@@ -133,6 +133,7 @@ export async function requestWebdl(
   const data = await axiosGet<TorboxResponse<string>>(url, {
     headers,
     params,
+    timeout: ENV.TORBOX_TIMEOUT_MS,
   });
   return data;
 }
@@ -171,13 +172,14 @@ export async function checkCache(
       await axiosGet<TorboxResponse<TorboxCheckCacheResponse[]>>(url, {
         headers,
         params,
+        timeout: ENV.TORBOX_TIMEOUT_MS,
       })
     )?.data;
     return data;
   }
   const data = await axiosGet<
     TorboxResponse<Record<string, TorboxCheckCacheResponse>>
-  >(url, { headers, params });
+  >(url, { headers, params, timeout: ENV.TORBOX_TIMEOUT_MS });
   return data;
 }
 

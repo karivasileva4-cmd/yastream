@@ -289,7 +289,7 @@ stremio.get("/subtitle/:url{.*}", async (c) => {
     const decryptedSubtitle = await getSetDecryptedSubtitle(encodedUrl);
     if (decryptedSubtitle) {
       return c.text(decryptedSubtitle, 200, {
-        "Content-Type": "text/vtt",
+        "Content-Type": "text/vtt; charset=utf-8;",
         "Access-Control-Allow-Origin": "*",
       });
     } else {

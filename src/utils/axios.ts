@@ -1,4 +1,9 @@
-import axios, { AxiosError, AxiosRequestConfig, HttpStatusCode } from "axios";
+import axios, {
+  AxiosError,
+  AxiosRequestConfig,
+  HttpStatusCode,
+  RawAxiosRequestHeaders,
+} from "axios";
 import EventEmitter from "events";
 import https from "https";
 import { GOFILE_API_ORIGIN, GOFILE_ORIGIN } from "../source/hoster/gofile.js";
@@ -7,10 +12,11 @@ import { decryptString } from "../source/onetouchtv-crypto.js";
 import { DECRYPTIT_HOST, DECRYPTIT_ORIGIN } from "../source/web/decryptit.js";
 import { FILECRYPT_ORIGIN } from "../source/web/filecrypt.js";
 import { VIEWCRATE_ORIGIN } from "../source/web/viewcrate.js";
-import { cache } from "./cache.js";
+import { FlareSolverrCookie, getFlareSolverr } from "./browser/flaresolverr.js";
+import { cache, TTL_MS } from "./cache.js";
 import { ONETOUCHTV_ORIGIN, USER_AGENT } from "./constant.js";
 import { ENV } from "./env.js";
-import { RateLimitError } from "./error.js";
+import { FlareSolverrError, RateLimitError } from "./error.js";
 import { Logger } from "./logger.js";
 
 // process.setMaxListeners(20);
@@ -159,13 +165,35 @@ export async function axiosGet<T>(
     while (true) {
       attempt++;
       try {
+        let cookies: FlareSolverrCookie[] = cache.get("kisskh:cookies");
+        if (
+          http == kisskhClient &&
+          ENV.KISSKH_USE_FLARESOLVERR &&
+          cookies == null
+        ) {
+          const response = await getFlareSolverr(url, "kisskh", 0);
+          if (!response?.solution?.response) {
+            throw new FlareSolverrError("No response from flaresolverr");
+          }
+          cache.set(
+            "kisskh:cookies",
+            response?.solution?.cookies,
+            TTL_MS.stream,
+          );
+        }
+        const headers: RawAxiosRequestHeaders = { ...config?.headers };
+        if (cookies)
+          headers.Cookie = cookies
+            .map((c) => `${c.name}=${c.value}`)
+            .join("; ");
         const response = await http.get(url, {
           timeout: 10000,
           ...config,
+          headers,
           signal: controller.signal as any,
         });
-        clearTimeout(timeoutId);
         const data = response.data;
+        clearTimeout(timeoutId);
         if (customClients.includes(http)) {
           cache.set(urlKey, data, cacheMs);
         }
@@ -176,9 +204,7 @@ export async function axiosGet<T>(
           error instanceof AxiosError && error.response?.status;
         isRateLimit = errorStatus === HttpStatusCode.TooManyRequests;
         if (http === onetouchtvClient) {
-          logger.log(
-            `Error ${error instanceof AxiosError && error.response?.data}`,
-          );
+          logger.log(`Error ${(error as AxiosError).response?.data}`);
           isRateLimit = isRateLimit || errorStatus === HttpStatusCode.NotFound;
         }
         if (!isRateLimit) break;

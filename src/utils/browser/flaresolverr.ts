@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from "axios";
+import { load } from "cheerio";
 import { CookieData, CookiePriority, CookieSameSite } from "puppeteer";
 import { cache, TTL_MS } from "../cache.js";
 import { ENV } from "../env.js";
@@ -25,7 +26,7 @@ export interface FlareSolverrResponse<T = any> {
   sessions?: string[];
 }
 
-interface FlareSolverrCookie {
+export interface FlareSolverrCookie {
   name: string;
   value: string;
   domain: string;
@@ -72,7 +73,7 @@ export async function getFlareSolverr(
     };
     const result = await sendFlareSolverr(payload);
     if (!result.solution?.response) return null;
-
+    // result.solution.response = [result.solution.response].join("\n");
     cache.set(cacheKey, result, TTL_MS.stream);
     return result;
   } catch (error) {
@@ -120,7 +121,7 @@ export async function sendFlareSolverr(
 
   const res = await c.post<FlareSolverrResponse>("", payload);
   if (res.data.status !== "ok") {
-    throw new Error(`Request failed: ${res.data.message}`);
+    throw new FlareSolverrError(`Request failed: ${res.data.message}`);
   }
   return res.data;
 }
@@ -171,4 +172,17 @@ export function convertToCookieData(cookie: FlareSolverrCookie): CookieData {
     value: cookie.value,
     domain: cookie.domain,
   };
+}
+
+export function parseDataFromFlaresolverr(html: string) {
+  const $ = load(html);
+  const text = $("pre").text().trim();
+  if (!text) {
+    return html;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }

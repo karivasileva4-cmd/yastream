@@ -81,3 +81,4 @@ export function parseOrigin(url: string) {
   const hostname = new URL(url).origin;
   return hostname;
 }
+

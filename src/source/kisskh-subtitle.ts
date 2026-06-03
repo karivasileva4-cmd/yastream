@@ -1,7 +1,9 @@
+import { AxiosRequestConfig } from "axios";
 import { Buffer } from "buffer";
 import * as crypto from "crypto";
 import { axiosGet } from "../utils/axios.js";
 import { cache } from "../utils/cache.js";
+import { ENV } from "../utils/env.js";
 import { Logger } from "../utils/logger.js";
 
 const logger = new Logger("SUB");
@@ -46,7 +48,7 @@ function decrypt(data: string, key: Buffer, iv: Buffer): string {
           decryptedLine += decipher.final("utf8");
           return decryptedLine;
         } catch (error) {
-          logger.error(`Fail to decrypt | ${line}`);
+          logger.warn(`Fail to decrypt | ${line}`);
           return line;
         }
       }
@@ -84,14 +86,20 @@ export async function getSetDecryptedSubtitle(
   }
 
   try {
-    const data = await axiosGet<string>(subtitleUrl, {
+    const url = ENV.PROXY_URL
+      ? `${ENV.PROXY_URL}:${ENV.PROXY_PORT}/${subtitleUrl}`
+      : subtitleUrl;
+    const config: AxiosRequestConfig = {
       responseType: "text",
       timeout: 20000,
-    });
-    const encryptedData = data;
+    };
+    let encryptedData = await axiosGet<string>(subtitleUrl, config);
+    if (!encryptedData) {
+      encryptedData = await axiosGet<string>(url, config);
+    }
     if (!encryptedData) return null;
-    logger.log(`Decrypt | ${subtitleUrl}`);
-    const format = detectFormat(subtitleUrl);
+    logger.log(`Decrypt | ${url}`);
+    const format = detectFormat(url);
     const { key, iv } = getKeyForFormat(format);
     const decrypted = decrypt(encryptedData, key, iv);
     cache.set(decryptSubKey, decrypted);

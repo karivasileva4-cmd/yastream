@@ -73,6 +73,12 @@ const envSchema = z.object({
   PUPPETEER_AUTH_HEADER: z.string().default(""),
   PUPPETEER_TIMEOUT_MS: z.coerce.number().default(20000),
 
+  // Proxy
+  PROXY_URL: z.string().default(""),
+  PROXY_PORT: z.coerce.number().default(443),
+  PROXY_USERNAME: z.string().default(""),
+  PROXY_PASSWORD: z.string().default(""),
+
   // Job
   JOB_ENABLED: z.coerce.boolean().default(false),
   JOB_CRON: z.string().default(`*/30 * * * * *`),
@@ -89,6 +95,7 @@ const envSchema = z.object({
     .transform((str) => JSON.parse(str))
     .pipe(z.array(z.url()))
     .default(["https://kisskh.co", "https://kisskh.do"]),
+  KISSKH_USE_FLARESOLVERR: z.coerce.boolean().default(false),
 
   // Mkvdrama
   MKVDRAMA_URL: z.string().default("https://mkvdrama.net"),

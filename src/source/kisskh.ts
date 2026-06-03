@@ -50,6 +50,7 @@ import { ContentDetail } from "./meta.js";
 import { getPosterUrl, PosterParam } from "./poster/poster.js";
 import { BaseProvider } from "./provider.js";
 import { tmdb } from "./tmdb.js";
+import { ONETOUCHTV_HOST } from "./onetouchtv.js";
 
 export interface SearchResult {
   id: number;
@@ -245,7 +246,7 @@ class KissKHScraperr extends BaseProvider {
     if (countryName == "US") {
       t = holliwood;
     }
-    const country = KISSKH_COUNTRY[countryName!];
+    const country = KISSKH_COUNTRY[countryName ?? "Korean"];
     let urls = [];
     let urlNum = 1;
     let page = this.getPage(this.pageSize, skip, urlNum);
@@ -637,7 +638,7 @@ class KissKHScraperr extends BaseProvider {
     if (url.includes("m3u8")) {
       const playlist = await axiosGet<string>(url);
       if (playlist) {
-        streamRow.playlist = playlist;
+        // streamRow.playlist = playlist;
         streamRow.hash = hashSHA256(playlist);
         upsertStream([streamRow]);
       }
@@ -805,10 +806,13 @@ class KissKHScraperr extends BaseProvider {
             season: "1",
             episode: episode?.toString() ?? "1",
           };
-          if (!this._needsDecryption(subtitle.url)) {
-            subtitleRow.subtitle = await getSetDecryptedSubtitle(subtitle.url);
-          } else {
+          if (this._needsDecryption(subtitle.url)) {
             subtitleRow.subtitle = decryptedSubtitleMap.get(subtitle.url);
+          } else if (subtitle.url.includes(ONETOUCHTV_HOST)) {
+            subtitleRow.subtitle = await axiosGet<string>(subtitle.url);
+          }
+          if (!subtitleRow.subtitle){
+            subtitleRow.ttl = TTL_MS.stream;
           }
           return subtitleRow;
         }),

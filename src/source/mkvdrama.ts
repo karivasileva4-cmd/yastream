@@ -449,7 +449,6 @@ export default class MkvdramaScraper extends BaseProvider {
       const links = await Promise.all(
         bestLinks.map(async (link) => {
           const redirectUrl = `${this.baseUrl}${link.link}`;
-          this.logger.log(`getRedirectedUrl ${redirectUrl}`);
           const ouoLink = await getRedirectedUrlCDP(
             redirectUrl,
             data.response?.solution?.cookies,
