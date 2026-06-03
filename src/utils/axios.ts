@@ -175,11 +175,15 @@ export async function axiosGet<T>(
           if (!response?.solution?.response) {
             throw new FlareSolverrError("No response from flaresolverr");
           }
-          cache.set(
-            "kisskh:cookies",
-            response?.solution?.cookies,
-            TTL_MS.stream,
-          );
+          if (!response?.solution?.cookies) {
+            cache.set(
+              "kisskh:cookies",
+              response?.solution?.cookies,
+              TTL_MS.stream,
+            );
+            cookies = response?.solution?.cookies;
+            logger.error(`Cookies ${cookies}`);
+          }
         }
         const headers: RawAxiosRequestHeaders = { ...config?.headers };
         if (cookies)
