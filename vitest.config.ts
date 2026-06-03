@@ -13,6 +13,12 @@ export default defineConfig({
       },
       {
         test: {
+          name: "util",
+          include: ["./src/utils/*.test.ts"],
+        },
+      },
+      {
+        test: {
           name: "browser",
           include: ["./src/utils/browser/**/*.test.ts"],
         },

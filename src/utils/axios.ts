@@ -166,23 +166,22 @@ export async function axiosGet<T>(
       attempt++;
       try {
         let cookies: FlareSolverrCookie[] = cache.get("kisskh:cookies");
-        if (
+        const useFlaresolverrCookie =
           http == kisskhClient &&
           ENV.KISSKH_USE_FLARESOLVERR &&
-          cookies == null
-        ) {
-          const response = await getFlareSolverr(url, "kisskh", 0);
+          cookies == null;
+        if (useFlaresolverrCookie) {
+          const response = await getFlareSolverr(url, "temp", 3);
           if (!response?.solution?.response) {
             throw new FlareSolverrError("No response from flaresolverr");
           }
-          if (!response?.solution?.cookies) {
+          if (response?.solution?.cookies) {
             cache.set(
               "kisskh:cookies",
               response?.solution?.cookies,
               TTL_MS.stream,
             );
             cookies = response?.solution?.cookies;
-            logger.error(`Cookies ${cookies}`);
           }
         }
         const headers: RawAxiosRequestHeaders = { ...config?.headers };
