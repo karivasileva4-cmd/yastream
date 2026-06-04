@@ -166,12 +166,13 @@ export async function axiosGet<T>(
       attempt++;
       try {
         let cookies: FlareSolverrCookie[] = cache.get("kisskh:cookies");
+        let userAgent: string = cache.get("kisskh:userAgent");
         const useFlaresolverrCookie =
           http == kisskhClient &&
           ENV.KISSKH_USE_FLARESOLVERR &&
           cookies == null;
         if (useFlaresolverrCookie) {
-          const response = await getFlareSolverr(url, "temp", 3);
+          const response = await getFlareSolverr(url, "kisskh", 3);
           if (!response?.solution?.response) {
             throw new FlareSolverrError("No response from flaresolverr");
           }
@@ -183,12 +184,21 @@ export async function axiosGet<T>(
             );
             cookies = response?.solution?.cookies;
           }
+          if (response?.solution?.userAgent) {
+            cache.set(
+              "kisskh:userAgent",
+              response?.solution?.userAgent,
+              TTL_MS.stream,
+            );
+            userAgent = response?.solution?.userAgent;
+          }
         }
         const headers: RawAxiosRequestHeaders = { ...config?.headers };
         if (cookies)
           headers.Cookie = cookies
             .map((c) => `${c.name}=${c.value}`)
             .join("; ");
+        if (userAgent) headers["User-Agent"] = userAgent;
         const response = await http.get(url, {
           timeout: 10000,
           ...config,

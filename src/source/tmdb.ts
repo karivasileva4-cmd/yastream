@@ -8,6 +8,7 @@ import { extractTitle } from "../utils/format.js";
 import { matchTitle, Search } from "../utils/fuse.js";
 import { BaseMeta, ContentDetail } from "./meta.js";
 import { Provider } from "./provider.js";
+import { USER_AGENT } from "../utils/constant.js";
 
 export interface TmdbFindResponse {
   movie_results: TmdbMovieResult[];
@@ -397,6 +398,7 @@ class TMDBService extends BaseMeta {
     }
     const config: AxiosRequestConfig = {
       headers: {
+        "User-Agent": USER_AGENT,
         Authorization: "Bearer " + this.apiKey,
         "Content-Type": "application/json",
       },

@@ -1,6 +1,6 @@
 # v0.9.2 2026-06-03
 
-- Add: Proxy for kisskh encrypted subtitle
+- Add: Proxy for kisskh encrypted subtitle (env PROXY_URL)
 - Add: Use flaresolverr to get cookies bypass for kisskh (env KISSKH_USE_FLARESOLVERR)
 - Fix: subtitle content-type
 
