@@ -396,6 +396,9 @@ class TMDBService extends BaseMeta {
     if (queryParams.size > 0) {
       url += `?${queryParams}`;
     }
+    if (ENV.PROXY_TMDB) {
+      url = `${ENV.PROXY_URL}:${ENV.PROXY_PORT}/${url}`;
+    }
     const config: AxiosRequestConfig = {
       headers: {
         "User-Agent": USER_AGENT,

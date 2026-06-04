@@ -86,7 +86,7 @@ export async function getSetDecryptedSubtitle(
   }
 
   try {
-    const url = ENV.PROXY_URL
+    const url = ENV.PROXY_KISSKH_SUBTITLE
       ? `${ENV.PROXY_URL}:${ENV.PROXY_PORT}/${subtitleUrl}`
       : subtitleUrl;
     const config: AxiosRequestConfig = {

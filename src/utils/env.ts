@@ -78,6 +78,8 @@ const envSchema = z.object({
   PROXY_PORT: z.coerce.number().default(443),
   PROXY_USERNAME: z.string().default(""),
   PROXY_PASSWORD: z.string().default(""),
+  PROXY_TMDB: z.coerce.boolean().default(false),
+  PROXY_KISSKH_SUBTITLE: z.coerce.boolean().default(false),
 
   // Job
   JOB_ENABLED: z.coerce.boolean().default(false),
