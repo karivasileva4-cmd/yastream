@@ -2,7 +2,9 @@
 
 - Add: Proxy for kisskh encrypted subtitle (env PROXY_URL, PROXY_KISSKH_SUBTITLE) and tmdb (env PROXY_TMDB)
 - Add: Use flaresolverr to get cookies bypass for kisskh (env KISSKH_USE_FLARESOLVERR)
+- Update: nsfw ids
 - Fix: subtitle content-type
+- Fix: length show correct time
 
 # v0.9.1 2026-05-30
 

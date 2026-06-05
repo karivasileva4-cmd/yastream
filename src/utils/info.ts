@@ -213,8 +213,8 @@ export function parseInfo(stream: EStream) {
   let info: StreamInfo = {};
   if (stream.size) info.size = parseFloat(stream.size);
   if (stream.duration) {
-    info.hours = parseInt(stream.duration) / 60;
-    info.minutes = parseInt(stream.duration) % 60;
+    info.hours = getHours(parseInt(stream.duration));
+    info.minutes = getMinutes(parseInt(stream.duration));
   }
   if (stream.resolution) {
     const width = stream.resolution.split("x")[0];

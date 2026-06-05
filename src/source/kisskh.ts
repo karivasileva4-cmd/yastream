@@ -118,7 +118,7 @@ class KissKHScraperr extends BaseProvider {
     Prefix.KISSKH,
     Prefix.ONETOUCHTV,
   ];
-  private readonly pageSize = 20;
+  private readonly pageSize = 10;
   private readonly subGuid: string = "VgV52sWhwvBSf8BsM3BRY9weWiiCbtGp";
   private readonly viGuid: string = "62f176f3bb1b5b8e70e39932ad34a0c7";
   private getSearchUrl() {
@@ -144,12 +144,15 @@ class KissKHScraperr extends BaseProvider {
   };
   private tokenJsCode: string | null = null;
   private nsfwIds = new Set([
-    13048, 13030, 12934, 12939, 12938, 12937, 12886, 12891, 12887, 12893, 12890,
-    12889, 12888, 12809, 12808, 12660, 12639, 12563, 12519, 12518, 12517, 12516,
-    12515, 12514, 12513, 12510, 12504, 12503, 12495, 12491, 12480, 12413, 12378,
-    12332, 12331, 12330, 12314, 12285, 12284, 12200, 12179, 12177, 12130, 12129,
-    12127, 12125, 12124, 12123, 12106, 11915, 11834, 11782, 11544, 11519, 11518,
-    11517, 11511, 11509, 11436, 10942, 10761,
+    13118, 13117, 13100, 13085, 13073, 13055, 13054, 13048, 13041, 13030, 12977,
+    12934, 12939, 12938, 12937, 12936, 12935, 12929, 12928, 12886, 12891, 12887,
+    12893, 12890, 12889, 12888, 12809, 12808, 12662, 12660, 12639, 12563, 12519,
+    12518, 12517, 12516, 12515, 12514, 12513, 12510, 12504, 12503, 12495, 12491,
+    12482, 12480, 12413, 12378, 12332, 12331, 12330, 12314, 12286, 12285, 12284,
+    12200, 12179, 12177, 12131, 12130, 12129, 12127, 12125, 12124, 12123, 12121,
+    12100, 12106, 12097, 12090, 11952, 11951, 11943, 11915, 11873, 11849, 11834,
+    11832, 11819, 11790, 11782, 11781, 11750, 11715, 11707, 11544, 11519, 11518,
+    11517, 11511, 11509, 11436, 10942, 10761, 7968,
   ]);
   private kisskhTmdb = new Map([
     [12422, "307602"],
@@ -249,15 +252,17 @@ class KissKHScraperr extends BaseProvider {
     const country = KISSKH_COUNTRY[countryName ?? "Korean"];
     let urls = [];
     let urlNum = 1;
-    let page = this.getPage(this.pageSize, skip, urlNum);
+    let pageSize = this.pageSize * urlNum;
     if (type === "series" || t === holliwood) {
       urlNum = 2;
-      page = this.getPage(this.pageSize, skip, urlNum);
+      pageSize = this.pageSize * urlNum;
+      const page = this.getPage(pageSize, skip, urlNum);
       urls.push(
         this.getExploreUrl() +
           `?page=${page}&type=${t}&sub=0&country=${country}&status=${ongoing}&order=2`,
       );
     }
+    const page = this.getPage(pageSize, skip, urlNum);
     urls.push(
       this.getExploreUrl() +
         `?page=${page}&type=${t}&sub=0&country=${country}&status=${completed}&order=2`,
@@ -811,7 +816,7 @@ class KissKHScraperr extends BaseProvider {
           } else if (subtitle.url.includes(ONETOUCHTV_HOST)) {
             subtitleRow.subtitle = await axiosGet<string>(subtitle.url);
           }
-          if (!subtitleRow.subtitle){
+          if (!subtitleRow.subtitle) {
             subtitleRow.ttl = TTL_MS.stream;
           }
           return subtitleRow;
