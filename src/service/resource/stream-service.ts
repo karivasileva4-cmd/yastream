@@ -46,16 +46,15 @@ class StreamService {
         streamsAndProvider.map(async (stream, index) => {
           let url = stream.streams.url;
           const provider = stream.provider_content.provider;
-          if (stream.streams.playlist) {
-            // Violate Cloudflare's ToS if serve m3u8 stream
-            // url = StreamService.getStreamUrl(stream.streams.id);
-            url = stream.streams.url;
-            const isExpired =
-              stream.streams.createdAt + (stream.streams.ttl ?? 0) < Date.now();
-            if (url.includes(ONETOUCHTV_HOST) && isExpired) {
-              return;
-            }
+          // if (stream.streams.playlist) {
+          // Violate Cloudflare's ToS if serve m3u8 stream
+          // url = StreamService.getStreamUrl(stream.streams.id);
+          const isExpired =
+            stream.streams.createdAt + (stream.streams.ttl ?? 0) < Date.now();
+          if (url.includes(ONETOUCHTV_HOST) && isExpired) {
+            return;
           }
+          // }
 
           let info: StreamInfo = parseInfo(stream.streams);
           const hasFullInfo: boolean =
