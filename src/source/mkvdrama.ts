@@ -191,9 +191,10 @@ export default class MkvdramaScraper extends BaseProvider {
       const cacheStreams: Stream[] = cache.get(streamKey);
       if (cacheStreams) return cacheStreams;
 
-      if (!mkvdramaId) {
-        mkvdramaId = (await this.getSearch(title, year, season))?.mkvdramaId;
-      }
+      // if (!mkvdramaId) {
+      //   return [];
+      //   mkvdramaId = (await this.getSearch(title, year, season))?.mkvdramaId;
+      // }
       if (!mkvdramaId) return [];
       const dbStreams = await StreamService.getDbStreams(
         `${this.name}:${mkvdramaId}`,

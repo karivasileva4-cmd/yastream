@@ -1,3 +1,7 @@
+# v0.9.3 2026-06-07
+
+- Remove: mkvdrama search, only serve from database
+
 # v0.9.2 2026-06-03
 
 - Add: Proxy for kisskh encrypted subtitle (env PROXY_URL, PROXY_KISSKH_SUBTITLE) and tmdb (env PROXY_TMDB)
