@@ -874,7 +874,7 @@ function selectKisskhUrl(): string {
       ((b.metrics?.success ?? 0) + 1) / ((b.metrics?.fail ?? 0) + 1);
     return bScore - aScore;
   });
-  return sorted[0]?.url || "https://kisskh.co";
+  return sorted[0]?.url || "https://kisskh.do";
 }
 
 export function getKisskhMetrics(): Map<string, UrlMetrics> {
