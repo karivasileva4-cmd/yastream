@@ -107,7 +107,7 @@ const KISSKH_COUNTRY: Record<string, string> = {
 
 class KissKHScraperr extends BaseProvider {
   readonly urls = ENV.KISSKH_URLS;
-  readonly baseUrl: string = "https://kisskh.co";
+  readonly baseUrl: string = "https://kisskh.do";
   getBaseUrl() {
     return getKisskhBaseUrl();
   }
