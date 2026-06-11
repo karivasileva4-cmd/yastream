@@ -487,7 +487,7 @@ export class OnetouchtvScrapper extends BaseProvider {
         }
       }
       const identifier = detail.result.episodes[0]?.identifier;
-      const episodeId = identifier || detail.result.id;
+      const episodeId = episodeData?.identifier || episodeData?.id || identifier || detail.result.id;
       const episodeData = detail.result.episodes.find(
         (ep) => ep.episode == episode?.toString(),
       );
