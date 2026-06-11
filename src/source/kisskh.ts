@@ -115,8 +115,7 @@ class KissKHScraperr extends BaseProvider {
     Prefix.IMDB,
     Prefix.TMDB,
     Prefix.TVDB,
-    Prefix.KISSKH,
-    Prefix.ONETOUCHTV,
+    Prefix.KISSKH, 
   ];
   private readonly pageSize = 10;
   private readonly subGuid: string = "VgV52sWhwvBSf8BsM3BRY9weWiiCbtGp";
