@@ -156,7 +156,6 @@ export class OnetouchtvScrapper extends BaseProvider {
     Prefix.IMDB,
     Prefix.TMDB,
     Prefix.TVDB,
-    Prefix.KISSKH,
     Prefix.ONETOUCHTV,
   ];
   baseUrl = Buffer.from("aHR0cHM6Ly9hcGkzLmRldmNvcnAubWU=", "base64").toString(
