@@ -486,13 +486,18 @@ export class OnetouchtvScrapper extends BaseProvider {
           }
         }
       }
-      const identifier = detail.result.episodes[0]?.identifier;
-      const episodeId = episodeData?.identifier || episodeData?.id || identifier || detail.result.id;
-      const episodeData = detail.result.episodes.find(
-        (ep) => ep.episode == episode?.toString(),
-      );
-      if (!episodeData) return [];
-      const episodeParam = episodeData?.playId || episode?.toString() || "1";
+     const identifier = detail.result.episodes[0]?.identifier;
+
+const episodeData = detail.result.episodes.find(
+  (ep) => ep.episode == episode?.toString(),
+);
+
+if (!episodeData) return [];
+
+const episodeId =
+  episodeData?.identifier || episodeData?.id || identifier || detail.result.id;
+
+const episodeParam = episodeData?.playId || episode?.toString() || "1";
       const episodeDetail = await this.getEpisode(episodeId, episodeParam);
       const streamRows: Omit<EStreamInsert, "createdAt">[] = [];
       const streams = await Promise.all(
